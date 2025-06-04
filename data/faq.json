@@ -1,0 +1,42 @@
+[
+  {
+    "id": "faq-1",
+    "question": "How does BREEZE work?",
+    "answer": "BREEZE is a food delivery platform that connects customers with local restaurants and delivery riders. Customers can browse menus, place orders, and track their deliveries in real-time. Restaurants receive orders through our platform and prepare the food, while our riders pick up and deliver the meals to customers."
+  },
+  {
+    "id": "faq-2",
+    "question": "How do I place an order on BREEZE?",
+    "answer": "To place an order, simply create an account, browse restaurants in your area, select the items you want, add them to your cart, and proceed to checkout. You can choose your preferred payment method and delivery address before confirming your order."
+  },
+  {
+    "id": "faq-3",
+    "question": "What are the delivery fees?",
+    "answer": "Delivery fees vary depending on your location and the restaurant you're ordering from. The exact fee will be displayed before you confirm your order. We also offer a subscription service called BREEZE+ that provides free delivery on eligible orders."
+  },
+  {
+    "id": "faq-4",
+    "question": "How long does delivery take?",
+    "answer": "Delivery times vary depending on factors such as distance, traffic, and restaurant preparation times. You'll see an estimated delivery time when you place your order, and you can track your order in real-time through the BREEZE app or website."
+  },
+  {
+    "id": "faq-5",
+    "question": "Can I schedule an order for later?",
+    "answer": "Yes, BREEZE offers a scheduled ordering feature. When placing your order, you can select a future date and time for delivery, allowing you to plan your meals in advance."
+  },
+  {
+    "id": "faq-6",
+    "question": "How do I become a BREEZE delivery rider?",
+    "answer": "To become a BREEZE rider, visit our 'Become a Rider' page and fill out the application form. You'll need to provide some personal information, proof of right to work, and vehicle details. Once approved, you'll receive training and can start accepting delivery requests."
+  },
+  {
+    "id": "faq-7",
+    "question": "How can I partner my restaurant with BREEZE?",
+    "answer": "If you're a restaurant owner interested in partnering with BREEZE, visit our 'Partner with Us' page and fill out the registration form. Our team will review your application and get in touch with more information about onboarding and integration."
+  },
+  {
+    "id": "faq-8",
+    "question": "What if there's an issue with my order?",
+    "answer": "If you experience any issues with your order, please contact our customer support team through the app or website. We're here to help and will work to resolve any problems as quickly as possible."
+  }
+]
