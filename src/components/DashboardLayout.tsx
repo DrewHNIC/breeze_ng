@@ -39,7 +39,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
   const [vendorInitials, setVendorInitials] = useState("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  // Loading state on route changes
+  // Route change loading effect
   useEffect(() => {
     const handleStart = () => setIsLoading(true)
     const handleComplete = () => setIsLoading(false)
@@ -55,7 +55,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
     }
   }, [router])
 
-  // Expired ads check
+  // Check and update expired ads periodically
   useEffect(() => {
     async function checkExpiredAds() {
       try {
@@ -71,12 +71,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
     }
 
     checkExpiredAds()
-
     const interval = setInterval(checkExpiredAds, 5 * 60 * 1000)
+
     return () => clearInterval(interval)
   }, [])
 
-  // Fetch vendor profile (store name + logo)
+  // Fetch vendor profile and initials
   useEffect(() => {
     async function fetchVendorProfile() {
       try {
@@ -132,7 +132,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
     fetchVendorProfile()
   }, [])
 
-  // Fetch pending orders count and setup subscription
+  // Fetch pending orders count and subscribe for updates
   useEffect(() => {
     async function fetchPendingOrdersCount() {
       try {
@@ -181,7 +181,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
             },
             () => {
               fetchPendingOrdersCount()
-            },
+            }
           )
           .subscribe()
 
@@ -224,7 +224,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
   ]
 
   const filteredMenuItems = menuItems.filter((item) =>
-    item.label.toLowerCase().includes(searchTerm.toLowerCase()),
+    item.label.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   return (
@@ -234,71 +234,39 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
         <meta name="description" content={`BREEZE Vendor ${title} Dashboard`} />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-
       <div className="flex h-screen bg-black text-white overflow-hidden">
-        {/* Mobile Top Bar */}
-        <header className="bg-primary border-b border-white flex items-center justify-between px-4 py-3 md:hidden">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open sidebar"
-            className="text-white hover:text-accent focus:outline-none"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <h1 className="text-lg font-bold">BREEZE</h1>
-
-          <div className="flex items-center gap-3">
-            {/* Search icon toggles search input on mobile */}
-            <button
-              onClick={() => setSearchTerm("")}
-              aria-label="Clear search"
-              className="text-white hover:text-accent focus:outline-none"
-            >
-              <Search className="w-5 h-5" />
-            </button>
-            {vendorProfile?.logo_url ? (
-              <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-700">
-                <Image
-                  src={vendorProfile.logo_url || "/placeholder.svg"}
-                  alt={`${vendorProfile.store_name} logo`}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-            ) : (
-              <div className="relative w-8 h-8 rounded-full bg-gray-800 text-secondary flex items-center justify-center">
-                <span className="text-sm font-medium">{vendorInitials}</span>
-              </div>
-            )}
-          </div>
-        </header>
-
-        {/* Sidebar overlay for mobile */}
+        {/* Mobile sidebar overlay */}
         {sidebarOpen && (
           <div
             className="fixed inset-0 bg-black bg-opacity-70 z-40 md:hidden"
             onClick={() => setSidebarOpen(false)}
-            aria-hidden="true"
           />
         )}
 
         {/* Sidebar */}
         <aside
-          className={`fixed top-0 left-0 z-50 h-full w-64 bg-primary border-r border-black-800 transform transition-transform duration-300 ease-in-out
-            ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 md:static md:flex-shrink-0`}
+          className={`
+            fixed inset-y-0 left-0 z-50 w-64 bg-primary border-r border-black-800
+            transform transition-transform duration-300 ease-in-out
+            ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} 
+            md:translate-x-0 md:static md:flex-shrink-0
+          `}
         >
-          <div className="flex items-center justify-between p-6 border-b border-black-800">
-            <h1 className="text-2xl font-bold">BREEZE</h1>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              aria-label="Close sidebar"
-              className="text-white hover:text-accent focus:outline-none md:hidden"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-          <nav className="mt-6 flex flex-col h-full">
-            <div className="flex-1 overflow-y-auto">
+          <div className="flex flex-col h-full">
+            <div className="flex items-center justify-between p-6 border-b border-black-800 md:hidden">
+              <h1 className="text-2xl font-bold">BREEZE</h1>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                aria-label="Close sidebar"
+                className="text-white"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-6 hidden md:block">
+              <h1 className="text-2xl font-bold">BREEZE</h1>
+            </div>
+            <nav className="mt-6 flex-1 overflow-y-auto">
               {filteredMenuItems.map((item) => {
                 const Icon = item.icon
                 const isActive = currentPath === item.href
@@ -311,7 +279,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                         ? "bg-red-900 text-white relative overflow-hidden"
                         : "text-white hover:text-accent hover:bg-red-900"
                     }`}
-                    onClick={() => setSidebarOpen(false)}
+                    onClick={() => setSidebarOpen(false)} // close sidebar on mobile link click
                   >
                     {isActive && (
                       <span className="absolute inset-0 bg-accent opacity-20 animate-pulse"></span>
@@ -326,62 +294,75 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                   </Link>
                 )
               })}
-            </div>
-            <button
-              onClick={() => {
-                handleSignOut()
-                setSidebarOpen(false)
-              }}
-              className="flex items-center gap-3 px-6 py-3 text-sm text-secondary hover:text-accent hover:bg-red-900 w-full mt-auto"
-            >
-              <LogOut className="h-5 w-5" />
-              <span>Sign Out</span>
-            </button>
-          </nav>
+              <button
+                onClick={() => {
+                  handleSignOut()
+                  setSidebarOpen(false)
+                }}
+                className="flex items-center gap-3 px-6 py-3 text-sm text-secondary hover:text-accent hover:bg-red-900 w-full"
+              >
+                <LogOut className="h-5 w-5" />
+                <span>Sign Out</span>
+              </button>
+            </nav>
+          </div>
         </aside>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Top Navigation (desktop) */}
-          <header className="hidden md:flex bg-primary border-b border-white px-6 py-4 items-center justify-between">
-            <h2 className="text-xl font-semibold text-white truncate">{title}</h2>
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="relative flex-grow max-w-xs">
+        <div className="flex-1 flex flex-col overflow-hidden md:ml-64">
+          {/* Top Navigation */}
+          <header className="bg-primary border-b border-white flex items-center justify-between px-4 py-3 md:px-6">
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open sidebar"
+              className="text-white md:hidden"
+            >
+              <Menu size={24} />
+            </button>
+
+            <h2 className="text-xl font-semibold text-white flex-1 text-center md:text-left">
+              {title}
+            </h2>
+
+            <div className="flex items-center gap-4 ml-auto">
+              <div className="relative">
                 <input
                   type="text"
                   placeholder="Search..."
-                  className="bg-black text-white rounded-full py-2 px-4 pl-10 w-full focus:outline-none focus:ring-2 focus:ring-accent truncate"
+                  className="bg-black text-white rounded-full py-2 px-4 pl-10 focus:outline-none focus:ring-2 focus:ring-accent w-48 max-w-xs"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white" />
               </div>
-              {vendorProfile?.logo_url ? (
-                <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-700">
-                  <Image
-                    src={vendorProfile.logo_url || "/placeholder.svg"}
-                    alt={`${vendorProfile.store_name} logo`}
-                    fill
-                    className="object-cover"
+              <button className="p-2 text-white hover:text-accent hidden sm:block">
+                <span className="sr-only">Notifications</span>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
                   />
-                </div>
-              ) : (
-                <div className="relative w-10 h-10 rounded-full bg-gray-800 text-secondary flex items-center justify-center">
-                  <span className="text-lg font-semibold">{vendorInitials}</span>
-                </div>
-              )}
+                </svg>
+              </button>
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto bg-primary p-6 md:p-8">{children}</main>
-        </div>
+          {/* Loading Bar */}
+          {isLoading && (
+            <div className="h-1 bg-accent animate-pulse w-full" />
+          )}
 
-        {/* Loading spinner */}
-        {isLoading && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-accent"></div>
-          </div>
-        )}
+          {/* Page Content */}
+          <main className="flex-1 overflow-y-auto p-6 bg-black">{children}</main>
+        </div>
       </div>
     </>
   )
