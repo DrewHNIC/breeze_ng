@@ -32,14 +32,14 @@ const Header: React.FC = () => {
           </button>
         </div>
       </div>
-      {isMenuOpen && (
+     {isMenuOpen && (
         <div className="md:hidden bg-gray-900">
-          <div className="container mx-auto px-4 py-2">
+          <div className="container mx-auto px-4 py-2 space-y-2">
             <Link href="/about" className="block py-2 hover:text-red-900 transition duration-300">About</Link>
             <Link href="/contact" className="block py-2 hover:text-red-900 transition duration-300">Contact</Link>
-            <button className="block py-2 hover:text-red-900 transition duration-300">
-              <Search size={20} />
-            </button>
+            <Link href="/faq" className="block py-2 hover:text-red-900 transition duration-300">FAQ</Link>
+            <Link href="/#join-community" className="block py-2 hover:text-red-900 transition duration-300">Sign Up</Link>
+            <Link href="/login" className="block py-2 hover:text-red-900 transition duration-300">Login</Link>
           </div>
         </div>
       )}
