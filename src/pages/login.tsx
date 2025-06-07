@@ -55,7 +55,7 @@ const Login: React.FC = () => {
         <meta name="description" content="Log in to your BREEZE account" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-r from-black to-white p-4 md:p-12">
+      <div className="flex flex-col md:flex-row min-h-screen bg-gradient-to-r from-black to-black p-4 md:p-12">
   <div className="w-full md:w-1/2 bg-black flex items-center justify-center mb-6 md:mb-0">
     <Image src="/login.gif" alt="Login" width={300} height={300} />
   </div>
