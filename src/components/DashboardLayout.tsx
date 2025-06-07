@@ -4,7 +4,7 @@ import Head from "next/head"
 import Link from "next/link"
 import { useRouter } from "next/router"
 import { supabase } from "../utils/supabase"
-import { checkAndUpdateExpiredAds } from "./utils/adExpiration";
+import { checkAndUpdateExpiredAds } from "./utils/adExpiration"
 import {
   LayoutGrid,
   UtensilsCrossed,
@@ -13,6 +13,8 @@ import {
   Megaphone,
   LogOut,
   Search,
+  Menu,
+  X,
 } from "lucide-react"
 import Image from "next/image"
 
@@ -35,7 +37,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0)
   const [vendorProfile, setVendorProfile] = useState<VendorProfile | null>(null)
   const [vendorInitials, setVendorInitials] = useState("")
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  // Loading state on route changes
   useEffect(() => {
     const handleStart = () => setIsLoading(true)
     const handleComplete = () => setIsLoading(false)
@@ -51,29 +55,28 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
     }
   }, [router])
 
+  // Expired ads check
   useEffect(() => {
-  async function checkExpiredAds() {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) return;
+    async function checkExpiredAds() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        if (!session) return
 
-      // Check and update expired ads
-      await checkAndUpdateExpiredAds(session.user.id);
-    } catch (error) {
-      console.error("Error checking expired ads:", error);
+        await checkAndUpdateExpiredAds(session.user.id)
+      } catch (error) {
+        console.error("Error checking expired ads:", error)
+      }
     }
-  }
 
-  checkExpiredAds();
-  
-  // Run this check every 5 minutes while the dashboard is open
-  const interval = setInterval(checkExpiredAds, 5 * 60 * 1000);
-  
-  return () => clearInterval(interval);
-}, []);
+    checkExpiredAds()
 
+    const interval = setInterval(checkExpiredAds, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Fetch vendor profile (store name + logo)
   useEffect(() => {
     async function fetchVendorProfile() {
       try {
@@ -82,7 +85,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
         } = await supabase.auth.getSession()
         if (!session) return
 
-        // First get the vendor data to ensure we have the store name
         const { data: vendorData, error: vendorError } = await supabase
           .from("vendors")
           .select("store_name")
@@ -94,7 +96,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
           return
         }
 
-        // Get the vendor profile which contains the logo
         const { data: profileData, error: profileError } = await supabase
           .from("vendor_profiles")
           .select("id, logo_url")
@@ -102,11 +103,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
           .single()
 
         if (profileError && profileError.code !== "PGRST116") {
-          // Not found is ok
           console.error("Error fetching vendor profile:", profileError)
         }
 
-        // Combine the data
         const profile = {
           id: session.user.id,
           store_name: vendorData.store_name,
@@ -115,13 +114,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
         setVendorProfile(profile)
 
-        // Generate initials from store name as fallback
         if (vendorData.store_name) {
           const words = vendorData.store_name.split(" ")
-          const initials = words.length > 1 ? `${words[0][0]}${words[1][0]}` : vendorData.store_name.substring(0, 2)
+          const initials =
+            words.length > 1
+              ? `${words[0][0]}${words[1][0]}`
+              : vendorData.store_name.substring(0, 2)
           setVendorInitials(initials.toUpperCase())
         } else {
-          setVendorInitials("VD") // Default: Vendor Dashboard
+          setVendorInitials("VD")
         }
       } catch (error) {
         console.error("Error in fetchVendorProfile:", error)
@@ -131,6 +132,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
     fetchVendorProfile()
   }, [])
 
+  // Fetch pending orders count and setup subscription
   useEffect(() => {
     async function fetchPendingOrdersCount() {
       try {
@@ -158,7 +160,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
     fetchPendingOrdersCount()
 
-    // Fix: Correctly handle subscription setup and cleanup
     const setupSubscription = async () => {
       try {
         const {
@@ -222,7 +223,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
     { href: "/vendor/ads", label: "Advertisements", icon: Megaphone },
   ]
 
-  const filteredMenuItems = menuItems.filter((item) => item.label.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredMenuItems = menuItems.filter((item) =>
+    item.label.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
 
   return (
     <>
@@ -231,40 +234,105 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
         <meta name="description" content={`BREEZE Vendor ${title} Dashboard`} />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <div className="flex h-screen bg-black text-white">
-        {/* Sidebar */}
-        <aside className="w-64 bg-primary border-r border-black-800">
-          <div className="p-6">
-            <h1 className="text-2xl font-bold">BREEZE</h1>
-          </div>
-          <nav className="mt-6">
-            {filteredMenuItems.map((item) => {
-              const Icon = item.icon
-              const isActive = currentPath === item.href
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-6 py-3 text-sm transition-colors ${
-                    isActive
-                      ? "bg-red-900 text-white relative overflow-hidden"
-                      : "text-white hover:text-accent hover:bg-red-900"
-                  }`}
-                >
-                  {isActive && <span className="absolute inset-0 bg-accent opacity-20 animate-pulse"></span>}
-                  <Icon className="h-5 w-5 relative z-10" />
-                  <span className="relative z-10">{item.label}</span>
-                  {item.badge && (
-                    <span className="ml-auto bg-black text-primary text-xs font-bold px-2 py-1 rounded-full relative z-10">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              )
-            })}
+
+      <div className="flex h-screen bg-black text-white overflow-hidden">
+        {/* Mobile Top Bar */}
+        <header className="bg-primary border-b border-white flex items-center justify-between px-4 py-3 md:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open sidebar"
+            className="text-white hover:text-accent focus:outline-none"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          <h1 className="text-lg font-bold">BREEZE</h1>
+
+          <div className="flex items-center gap-3">
+            {/* Search icon toggles search input on mobile */}
             <button
-              onClick={handleSignOut}
-              className="flex items-center gap-3 px-6 py-3 text-sm text-secondary hover:text-accent hover:bg-red-900 w-full"
+              onClick={() => setSearchTerm("")}
+              aria-label="Clear search"
+              className="text-white hover:text-accent focus:outline-none"
+            >
+              <Search className="w-5 h-5" />
+            </button>
+            {vendorProfile?.logo_url ? (
+              <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-700">
+                <Image
+                  src={vendorProfile.logo_url || "/placeholder.svg"}
+                  alt={`${vendorProfile.store_name} logo`}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            ) : (
+              <div className="relative w-8 h-8 rounded-full bg-gray-800 text-secondary flex items-center justify-center">
+                <span className="text-sm font-medium">{vendorInitials}</span>
+              </div>
+            )}
+          </div>
+        </header>
+
+        {/* Sidebar overlay for mobile */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-70 z-40 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
+        {/* Sidebar */}
+        <aside
+          className={`fixed top-0 left-0 z-50 h-full w-64 bg-primary border-r border-black-800 transform transition-transform duration-300 ease-in-out
+            ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 md:static md:flex-shrink-0`}
+        >
+          <div className="flex items-center justify-between p-6 border-b border-black-800">
+            <h1 className="text-2xl font-bold">BREEZE</h1>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Close sidebar"
+              className="text-white hover:text-accent focus:outline-none md:hidden"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <nav className="mt-6 flex flex-col h-full">
+            <div className="flex-1 overflow-y-auto">
+              {filteredMenuItems.map((item) => {
+                const Icon = item.icon
+                const isActive = currentPath === item.href
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center gap-3 px-6 py-3 text-sm transition-colors ${
+                      isActive
+                        ? "bg-red-900 text-white relative overflow-hidden"
+                        : "text-white hover:text-accent hover:bg-red-900"
+                    }`}
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    {isActive && (
+                      <span className="absolute inset-0 bg-accent opacity-20 animate-pulse"></span>
+                    )}
+                    <Icon className="h-5 w-5 relative z-10" />
+                    <span className="relative z-10">{item.label}</span>
+                    {item.badge && (
+                      <span className="ml-auto bg-black text-primary text-xs font-bold px-2 py-1 rounded-full relative z-10">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+            <button
+              onClick={() => {
+                handleSignOut()
+                setSidebarOpen(false)
+              }}
+              className="flex items-center gap-3 px-6 py-3 text-sm text-secondary hover:text-accent hover:bg-red-900 w-full mt-auto"
             >
               <LogOut className="h-5 w-5" />
               <span>Sign Out</span>
@@ -274,66 +342,49 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Top Navigation */}
-          <header className="bg-primary border-b border-white">
-            <div className="flex items-center justify-between px-6 py-4">
-              <h2 className="text-xl font-semibold text-white">{title}</h2>
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    className="bg-black text-white rounded-full py-2 px-4 pl-10 focus:outline-none focus:ring-2 focus:ring-accent"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white" />
-                </div>
-                <button className="p-2 text-white hover:text-accent">
-                  <span className="sr-only">Notifications</span>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                    />
-                  </svg>
-                </button>
-
-                {/* Profile Image/Avatar - Updated to show logo when available */}
-                {vendorProfile?.logo_url ? (
-                  <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-700">
-                    <Image
-                      src={vendorProfile.logo_url || "/placeholder.svg"}
-                      alt={`${vendorProfile.store_name} logo`}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                ) : (
-                  <button className="relative w-8 h-8 rounded-full bg-gray-800 text-secondary flex items-center justify-center">
-                    <span className="text-sm font-medium">{vendorInitials}</span>
-                  </button>
-                )}
+          {/* Top Navigation (desktop) */}
+          <header className="hidden md:flex bg-primary border-b border-white px-6 py-4 items-center justify-between">
+            <h2 className="text-xl font-semibold text-white truncate">{title}</h2>
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="relative flex-grow max-w-xs">
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  className="bg-black text-white rounded-full py-2 px-4 pl-10 w-full focus:outline-none focus:ring-2 focus:ring-accent truncate"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white" />
               </div>
+              {vendorProfile?.logo_url ? (
+                <div className="relative w-10 h-10 rounded-full overflow-hidden border border-gray-700">
+                  <Image
+                    src={vendorProfile.logo_url || "/placeholder.svg"}
+                    alt={`${vendorProfile.store_name} logo`}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="relative w-10 h-10 rounded-full bg-gray-800 text-secondary flex items-center justify-center">
+                  <span className="text-lg font-semibold">{vendorInitials}</span>
+                </div>
+              )}
             </div>
           </header>
 
-          {/* Main Content Area */}
-          <main className="flex-1 overflow-y-auto bg-primary p-6 relative">
-            {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75 z-50">
-                <p className="text-white text-xl font-bold italic">Loading...</p>
-              </div>
-            )}
-            {children}
-          </main>
+          <main className="flex-1 overflow-y-auto bg-primary p-6 md:p-8">{children}</main>
         </div>
+
+        {/* Loading spinner */}
+        {isLoading && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-accent"></div>
+          </div>
+        )}
       </div>
     </>
   )
 }
 
 export default DashboardLayout
-
