@@ -24,64 +24,60 @@ const MenuManagement: React.FC = () => {
   const fetchCategories = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-  
+
     const { data: vendorProfile, error } = await supabase
       .from("vendors")
       .select("id")
       .eq("email", user.email)
       .single();
-  
+
     if (error || !vendorProfile) {
       console.error("Vendor profile not found", error);
       return;
     }
-  
+
     const vendor_id = vendorProfile.id;
-  
+
     const { data, error: fetchError } = await supabase
       .from("categories")
       .select("*")
-      .eq("vendor_id", vendor_id);  // Fetch only the vendor's categories
-  
+      .eq("vendor_id", vendor_id);
+
     if (fetchError) {
       console.error("Error fetching categories:", fetchError);
     } else {
       setCategories(data);
     }
   };
-  
-  
 
   const fetchMenuItems = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-  
+
     const { data: vendorProfile, error } = await supabase
       .from("vendors")
       .select("id")
       .eq("email", user.email)
       .single();
-  
+
     if (error || !vendorProfile) {
       console.error("Vendor profile not found", error);
       return;
     }
-  
+
     const vendor_id = vendorProfile.id;
-  
+
     const { data, error: fetchError } = await supabase
       .from("menu_items")
       .select("*")
-      .eq("vendor_id", vendor_id);  // Fetch only the vendor's menu items
-  
+      .eq("vendor_id", vendor_id);
+
     if (fetchError) {
       console.error("Error fetching menu items:", fetchError);
     } else {
       setMenuItems(data);
     }
   };
-  
-  
 
   const handleEditCategory = (category: any) => {
     setEditingCategory(category);
@@ -115,16 +111,16 @@ const MenuManagement: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex justify-between items-center mb-6">
+    <div className="flex flex-col h-full px-4 py-6 md:px-8 md:py-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h1 className="text-2xl font-bold text-secondary">Menu Management</h1>
-        <div className="flex space-x-4">
+        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
           <button
             onClick={() => {
               setEditingCategory(null);
               setIsAddCategoryModalOpen(true);
             }}
-            className="bg-accent text-primary px-4 py-2 rounded-md hover:bg-red-900 transition-colors"
+            className="bg-accent text-primary px-4 py-2 rounded-md hover:bg-red-900 transition-colors flex items-center justify-center"
           >
             <Plus className="inline-block mr-2" size={18} />
             Add Category
@@ -134,39 +130,49 @@ const MenuManagement: React.FC = () => {
               setEditingMenuItem(null);
               setIsAddMenuItemModalOpen(true);
             }}
-            className="bg-accent text-primary px-4 py-2 rounded-md hover:bg-red-900 transition-colors"
+            className="bg-accent text-primary px-4 py-2 rounded-md hover:bg-red-900 transition-colors flex items-center justify-center"
           >
             <Plus className="inline-block mr-2" size={18} />
             Add Menu Item
           </button>
         </div>
       </div>
-      <div className="flex flex-1 space-x-6">
-        <CategoryList
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-          onEditCategory={handleEditCategory}
-          onDeleteCategory={handleDeleteCategory}
-        />
-        <div className="flex-1">
-          <div className="mb-4 relative">
+
+      <div className="flex flex-col md:flex-row flex-1 gap-6 overflow-hidden">
+        {/* Category List */}
+        <div className="md:w-64 w-full max-h-[300px] md:max-h-full overflow-y-auto border border-gray-300 rounded-md p-3 bg-white">
+          <CategoryList
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+            onEditCategory={handleEditCategory}
+            onDeleteCategory={handleDeleteCategory}
+          />
+        </div>
+
+        {/* Menu Items and Search */}
+        <div className="flex flex-col flex-1 w-full">
+          <div className="mb-4 relative w-full">
             <input
               type="text"
               placeholder="Search menu items..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-white text-black rounded-md py-2 px-4 pl-10 focus:outline-none focus:ring-2 focus:ring-accent"
+              aria-label="Search menu items"
             />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black" size={18} />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-black pointer-events-none" size={18} />
           </div>
-          <MenuItemList 
-            menuItems={filteredMenuItems} 
-            onEdit={handleEditMenuItem}
-            onDelete={handleDeleteMenuItem}
-          />
+          <div className="overflow-y-auto max-h-[60vh] md:max-h-[calc(100vh-220px)]">
+            <MenuItemList 
+              menuItems={filteredMenuItems} 
+              onEdit={handleEditMenuItem}
+              onDelete={handleDeleteMenuItem}
+            />
+          </div>
         </div>
       </div>
+
       <AddEditCategoryModal
         isOpen={isAddCategoryModalOpen}
         onClose={() => {
