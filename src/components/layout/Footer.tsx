@@ -1,11 +1,11 @@
-// components/layout/Footer.tsx
+// src/components/layout/Footer.tsx
 import React from 'react';
 import Link from 'next/link';
 import { FaFacebookF, FaTwitter, FaInstagram, FaLinkedinIn } from 'react-icons/fa';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="bg-gradient-to-r from-[#141421] to-[#1a1a2b] text-[#0A5784] py-8">
+    <footer className="bg-gradient-to-t from-[#141421] to-[#0A5784] text-white py-8">
       <div className="container mx-auto px-4">
         <div className="flex flex-wrap justify-between items-center">
           <div className="w-full md:w-1/3 mb-6 md:mb-0">
@@ -14,11 +14,11 @@ const Footer: React.FC = () => {
           </div>
           <div className="w-full md:w-1/3 mb-6 md:mb-0">
             <h4 className="text-lg font-semibold mb-2">Quick Links</h4>
-            <ul className="text-sm">
-              {['/', '/about', '/contact', '/faq', '/terms-of-service', '/privacy-policy'].map((path) => (
-                <li key={path} className="mb-1">
-                  <Link href={path} className="hover:text-[#f15152] capitalize">
-                    {path === '/' ? 'Home' : path.replace('/', '').replace(/-/g, ' ')}
+            <ul className="text-sm text-gray-300">
+              {['Home', 'About Us', 'Contact', 'FAQ', 'Terms of Service', 'Privacy Policy'].map((text, index) => (
+                <li key={index} className="mb-1">
+                  <Link href={`/${text.toLowerCase().replace(/ /g, '-')}`} className="hover:text-[#f15152]">
+                    {text}
                   </Link>
                 </li>
               ))}
@@ -27,12 +27,8 @@ const Footer: React.FC = () => {
           <div className="w-full md:w-1/3">
             <h4 className="text-lg font-semibold mb-2">Connect With Us</h4>
             <div className="flex space-x-4">
-              {[FaFacebookF, FaTwitter, FaInstagram, FaLinkedinIn].map((Icon, index) => (
-                <a
-                  key={index}
-                  href="#"
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-[#0A5784] text-white hover:bg-[#f15152] transition"
-                >
+              {[FaFacebookF, FaTwitter, FaInstagram, FaLinkedinIn].map((Icon, idx) => (
+                <a key={idx} href="#" className="w-10 h-10 flex items-center justify-center rounded-full bg-[#141421] hover:bg-[#f15152] transition">
                   <Icon size={20} />
                 </a>
               ))}
