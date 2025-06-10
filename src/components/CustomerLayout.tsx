@@ -149,10 +149,27 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, title }) => {
         <header className="bg-black text-white shadow-md sticky top-0 z-50">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between h-16">
-              {/* Logo */}
-              <Link href="/customer/home" className="flex items-center">
-                <span className="text-2xl font-bold text-white">BREEZE</span>
-              </Link>
+              {/* Left section: Logo + Avatar (mobile only) */}
+              <div className="flex items-center space-x-2">
+                <Link href="/customer/home" className="flex items-center">
+                  <span className="text-2xl font-bold text-white">BREEZE</span>
+                </Link>
+                <div className="md:hidden ml-2">
+                  {customerProfile?.avatar_url ? (
+                    <Image
+                      src={customerProfile.avatar_url || "/placeholder.svg"}
+                      alt={`${customerProfile.name} avatar`}
+                      width={32}
+                      height={32}
+                      className="rounded-full border border-gray-300"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center">
+                      <span className="text-sm font-medium">{customerInitials}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Desktop Navigation */}
               <nav className="hidden md:flex items-center space-x-6">
@@ -189,31 +206,14 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, title }) => {
                 </button>
               </nav>
 
-              {/* Mobile Menu Button */}
+              {/* Mobile Menu Button (Right-aligned) */}
               <button
-                className="md:hidden p-2 text-white hover:text-red-900"
+                className="md:hidden ml-auto p-2 text-white hover:text-red-900"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 aria-label="Toggle mobile menu"
               >
                 <Menu className="h-6 w-6" />
               </button>
-
-              {/* Profile Avatar (Mobile Only) */}
-              <div className="md:hidden ml-2">
-                {customerProfile?.avatar_url ? (
-                  <Image
-                    src={customerProfile.avatar_url || "/placeholder.svg"}
-                    alt={`${customerProfile.name} avatar`}
-                    width={32}
-                    height={32}
-                    className="rounded-full border border-gray-300"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center">
-                    <span className="text-sm font-medium">{customerInitials}</span>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </header>
