@@ -6,20 +6,18 @@ const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="bg-gradient-to-r from-[#1D1D27] to-[#2A2A39] text-[#70452F] fixed w-full z-10">
+    <header className="bg-[#1D1D27] text-[#70452F] fixed w-full z-10 shadow-md">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-4">
           <Link href="/" className="text-2xl font-bold">
             B R E E Z E
           </Link>
           <div className="hidden md:flex space-x-4">
-            {['about', 'contact', 'faq'].map((page) => (
-              <Link key={page} href={`/${page}`} className="hover:text-[#CCA281] transition duration-300 capitalize">
-                {page}
+            {["/about", "/contact", "/faq", "/#join-community", "/login"].map((href, i) => (
+              <Link key={i} href={href} className="hover:text-[#CCA281] transition duration-300 capitalize">
+                {href.includes("#") ? "Sign Up" : href.replace("/", "")}
               </Link>
             ))}
-            <Link href="/#join-community" className="hover:text-[#CCA281]">Sign Up</Link>
-            <Link href="/login" className="hover:text-[#CCA281]">Login</Link>
             <button className="hover:text-[#CCA281] transition duration-300">
               <Search size={20} />
             </button>
@@ -32,15 +30,13 @@ const Header: React.FC = () => {
         </div>
       </div>
       {isMenuOpen && (
-        <div className="md:hidden bg-[#2A2A39]">
+        <div className="md:hidden bg-[#2D2D3A]">
           <div className="container mx-auto px-4 py-2 space-y-2">
-            {['about', 'contact', 'faq'].map((page) => (
-              <Link key={page} href={`/${page}`} className="block py-2 hover:text-[#CCA281] transition duration-300">
-                {page}
+            {["/about", "/contact", "/faq", "/#join-community", "/login"].map((href, i) => (
+              <Link key={i} href={href} className="block py-2 hover:text-[#CCA281] transition duration-300">
+                {href.includes("#") ? "Sign Up" : href.replace("/", "")}
               </Link>
             ))}
-            <Link href="/#join-community" className="block py-2 hover:text-[#CCA281]">Sign Up</Link>
-            <Link href="/login" className="block py-2 hover:text-[#CCA281]">Login</Link>
           </div>
         </div>
       )}
