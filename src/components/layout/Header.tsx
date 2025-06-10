@@ -7,23 +7,23 @@ const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="bg-gradient-to-r from-[#141421] to-[#0A5784] text-white fixed w-full z-10">
+    <header className="bg-[#041915] text-[#1E493D] fixed w-full z-10">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-4">
-          <Link href="/" className="text-2xl font-bold">
+          <Link href="/" className="text-2xl font-bold text-[#1E493D]">
             B R E E Z E
           </Link>
           <div className="hidden md:flex space-x-4">
-            {['About', 'Contact', 'FAQ', 'Sign Up', 'Login'].map((label, index) => (
+            {["about", "contact", "faq", "#join-community", "login"].map((page, index) => (
               <Link
                 key={index}
-                href={`/${label.toLowerCase().replace(' ', '-')}`}
-                className="hover:text-[#f15152] transition duration-300"
+                href={`/${page === "#join-community" ? "" : page}`}
+                className="hover:text-[#BF8C73] transition duration-300"
               >
-                {label}
+                {page === "#join-community" ? "Sign Up" : page.charAt(0).toUpperCase() + page.slice(1)}
               </Link>
             ))}
-            <button className="hover:text-[#f15152] transition duration-300">
+            <button className="hover:text-[#BF8C73] transition duration-300">
               <Search size={20} />
             </button>
           </div>
@@ -38,15 +38,15 @@ const Header: React.FC = () => {
         </div>
       </div>
       {isMenuOpen && (
-        <div className="md:hidden bg-[#0A5784]">
+        <div className="md:hidden bg-[#0a2e26]">
           <div className="container mx-auto px-4 py-2 space-y-2">
-            {['About', 'Contact', 'FAQ', 'Sign Up', 'Login'].map((label, index) => (
+            {["about", "contact", "faq", "#join-community", "login"].map((page, index) => (
               <Link
                 key={index}
-                href={`/${label.toLowerCase().replace(' ', '-')}`}
-                className="block py-2 hover:text-[#f15152] transition duration-300"
+                href={`/${page === "#join-community" ? "" : page}`}
+                className="block py-2 hover:text-[#BF8C73] transition duration-300"
               >
-                {label}
+                {page === "#join-community" ? "Sign Up" : page.charAt(0).toUpperCase() + page.slice(1)}
               </Link>
             ))}
           </div>
