@@ -7,23 +7,19 @@ const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <header className="bg-[#041915] text-[#1E493D] fixed w-full z-10">
+    <header className="bg-gradient-to-r from-[#1A2026] to-[#872816] text-white fixed w-full z-10">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-4">
-          <Link href="/" className="text-2xl font-bold text-[#1E493D]">
+          <Link href="/" className="text-2xl font-bold text-[#C4710B]">
             B R E E Z E
           </Link>
-          <div className="hidden md:flex space-x-4">
-            {["about", "contact", "faq", "#join-community", "login"].map((page, index) => (
-              <Link
-                key={index}
-                href={`/${page === "#join-community" ? "" : page}`}
-                className="hover:text-[#BF8C73] transition duration-300"
-              >
-                {page === "#join-community" ? "Sign Up" : page.charAt(0).toUpperCase() + page.slice(1)}
-              </Link>
-            ))}
-            <button className="hover:text-[#BF8C73] transition duration-300">
+          <div className="hidden md:flex space-x-4 text-[#F4D2BD]">
+            <Link href="/about" className="hover:text-[#C4710B] transition duration-300">About</Link>
+            <Link href="/contact" className="hover:text-[#C4710B] transition duration-300">Contact</Link>
+            <Link href="/faq" className="hover:text-[#C4710B]">FAQ</Link>
+            <Link href="/#join-community" className="hover:text-[#C4710B]">Sign Up</Link>
+            <Link href="/login" className="hover:text-[#C4710B]">Login</Link>
+            <button className="hover:text-[#C4710B] transition duration-300">
               <Search size={20} />
             </button>
           </div>
@@ -38,17 +34,13 @@ const Header: React.FC = () => {
         </div>
       </div>
       {isMenuOpen && (
-        <div className="md:hidden bg-[#0a2e26]">
-          <div className="container mx-auto px-4 py-2 space-y-2">
-            {["about", "contact", "faq", "#join-community", "login"].map((page, index) => (
-              <Link
-                key={index}
-                href={`/${page === "#join-community" ? "" : page}`}
-                className="block py-2 hover:text-[#BF8C73] transition duration-300"
-              >
-                {page === "#join-community" ? "Sign Up" : page.charAt(0).toUpperCase() + page.slice(1)}
-              </Link>
-            ))}
+        <div className="md:hidden bg-[#1A2026]">
+          <div className="container mx-auto px-4 py-2 space-y-2 text-[#F4D2BD]">
+            <Link href="/about" className="block py-2 hover:text-[#C4710B]">About</Link>
+            <Link href="/contact" className="block py-2 hover:text-[#C4710B]">Contact</Link>
+            <Link href="/faq" className="block py-2 hover:text-[#C4710B]">FAQ</Link>
+            <Link href="/#join-community" className="block py-2 hover:text-[#C4710B]">Sign Up</Link>
+            <Link href="/login" className="block py-2 hover:text-[#C4710B]">Login</Link>
           </div>
         </div>
       )}
