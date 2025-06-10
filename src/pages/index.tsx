@@ -114,7 +114,7 @@ const Home: React.FC = () => {
               <p className="text-lg sm:text-2xl mb-6 italic text-[#cce7f5]">Make each delivery a breeze</p>
               <button
                 onClick={scrollToPersonas}
-                className="bg-gradient-to-r from-[#f15152] to-[#e36262] text-white px-6 py-2 rounded-md text-lg font-semibold hover:opacity-90 transition"
+                className="bg-gradient-to-r from-[#f15152] to-[#e36262] text-white px-6 py-2 rounded-md text-lg font-semibold hover:opacity 90 transition"
               >
                 Get Started
               </button>
