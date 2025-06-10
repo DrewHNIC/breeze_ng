@@ -1,11 +1,10 @@
-// src/pages/index.tsx
+// index.tsx
 import React, { useRef, useEffect, useState } from 'react';
 import Head from 'next/head';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import Link from 'next/link';
 import Image from 'next/image';
-import { supabase } from '../utils/supabase';
 
 interface Restaurant {
   id: number;
@@ -19,8 +18,7 @@ interface Restaurant {
 const Home: React.FC = () => {
   const personasRef = useRef<HTMLDivElement>(null);
   const [featuredRestaurants, setFeaturedRestaurants] = useState<Restaurant[]>([]);
-  const [videoUrls, setVideoUrls] = useState<string[]>([]);
-  const [currentVideo, setCurrentVideo] = useState<string>('');
+  const [currentVideo, setCurrentVideo] = useState<string>('/videos/hero-video-1.mp4');
 
   const scrollToPersonas = () => {
     personasRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -43,51 +41,29 @@ const Home: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const fetchVideos = async () => {
-      const { data, error } = await supabase.storage
-        .from('landing-videos')
-        .list('', { limit: 100 });
+    const videos = [
+      '/videos/hero-video-1.mp4',
+      '/videos/hero-video-2.mp4',
+      '/videos/hero-video-3.mp4',
+      '/videos/hero-video-4.mp4',
+      '/videos/hero-video-5.mp4',
+      '/videos/hero-video-6.mp4',
+    ];
 
-      if (error) {
-        console.error('Error fetching videos:', error);
-        return;
-      }
-
-      const urls = await Promise.all(
-        data
-          .filter((file) => file.name.endsWith('.mp4'))
-          .map(async (file) => {
-            const { data: urlData } = await supabase
-              .storage
-              .from('landing-videos')
-              .createSignedUrl(file.name, 60 * 60);
-            return urlData?.signedUrl || '';
-          })
-      );
-
-      setVideoUrls(urls.filter(Boolean));
-
-      const random = urls[Math.floor(Math.random() * urls.length)];
-      if (random) setCurrentVideo(random);
+    const changeVideo = () => {
+      const randomIndex = Math.floor(Math.random() * videos.length);
+      setCurrentVideo(videos[randomIndex]);
     };
 
-    fetchVideos();
-
-    const intervalId = setInterval(() => {
-      if (videoUrls.length > 0) {
-        const random = videoUrls[Math.floor(Math.random() * videoUrls.length)];
-        setCurrentVideo(random);
-      }
-    }, 10000);
+    const intervalId = setInterval(changeVideo, 10000);
 
     return () => clearInterval(intervalId);
-  }, [videoUrls]);
+  }, []);
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#1A2026] to-[#872816] text-[#872816]">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-[#001A12] to-[#00281c] text-[#35604E]">
       <Head>
         <title>BREEZE - Revolutionizing Food Delivery</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="description" content="BREEZE - A platform tailored towards a delivery persona" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -96,25 +72,23 @@ const Home: React.FC = () => {
 
       <main className="flex-grow">
         {/* Hero Section */}
-        <section className="relative h-[100dvh] sm:h-screen">
-          {currentVideo && (
-            <video
-              key={currentVideo}
-              autoPlay
-              loop
-              muted
-              className="absolute inset-0 w-full h-full object-cover"
-            >
-              <source src={currentVideo} type="video/mp4" />
-            </video>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#1A2026]/80 to-[#872816]/80 flex items-center justify-center px-4 text-center">
-            <div className="max-w-xl">
-              <h1 className="text-4xl sm:text-6xl font-bold mb-4 text-[#C4710B]">Welcome to BREEZE</h1>
-              <p className="text-lg sm:text-2xl mb-6 italic text-[#F4D2BD]">Make each delivery a breeze</p>
+        <section className="relative h-screen">
+          <video
+            key={currentVideo}
+            autoPlay
+            loop
+            muted
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src={currentVideo} type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-[#001A12]/70 flex items-center justify-center">
+            <div className="text-center text-[#35604E]">
+              <h1 className="text-6xl font-bold mb-4">Welcome to BREEZE</h1>
+              <p className="text-2xl mb-8 italic">Make each delivery a breeze</p>
               <button
                 onClick={scrollToPersonas}
-                className="border-2 border-[#C4710B] text-[#C4710B] px-6 py-2 rounded-md text-lg font-semibold hover:bg-[#C4710B] hover:text-white transition"
+                className="border-2 border-[#35604E] text-[#35604E] px-6 py-2 rounded-md hover:bg-[#35604E]/20 transition duration-300"
               >
                 Get Started
               </button>
@@ -123,28 +97,28 @@ const Home: React.FC = () => {
         </section>
 
         {/* User Personas Section */}
-        <section id="join-community" className="py-16 bg-gradient-to-b from-[#1A2026] to-[#872816]" ref={personasRef}>
+        <section id="join-community" className="py-16 bg-gradient-to-bl from-[#001A12] to-[#00281c]" ref={personasRef}>
           <div className="container mx-auto px-4">
-            <h2 className="text-4xl font-bold text-center mb-12 text-[#C4710B]">Join Our Community</h2>
+            <h2 className="text-4xl font-bold text-center mb-12 text-[#35604E]">Join Our Community</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {personas.map((persona) => (
-                <div key={persona.title} className="bg-[#1A2026] rounded-lg shadow-md overflow-hidden hover:shadow-lg transition duration-300">
+                <div key={persona.title} className="bg-[#00281c] rounded-lg shadow-md overflow-hidden transition duration-300 hover:shadow-lg">
                   <div className="md:flex">
                     <div className="md:flex-shrink-0">
                       <Image
                         src={persona.image || "/placeholder.svg"}
                         alt={persona.title}
-                        width={400}
-                        height={300}
-                        className="w-full md:w-64 lg:w-80 h-48 md:h-auto object-cover"
+                        width={300}
+                        height={200}
+                        className="h-48 w-full object-cover md:w-48"
                       />
                     </div>
-                    <div className="p-6">
-                      <h3 className="uppercase tracking-wide text-sm text-[#C4710B] font-bold">{persona.title}</h3>
-                      <p className="mt-2 text-[#F4D2BD]">{persona.description}</p>
+                    <div className="p-8">
+                      <h3 className="uppercase tracking-wide text-sm text-[#F56F4F] font-bold">{persona.title}</h3>
+                      <p className="mt-2 text-[#a8d4c0]">{persona.description}</p>
                       <Link
                         href={persona.link}
-                        className="mt-4 block bg-[#1A2026] text-[#C4710B] px-6 py-2 rounded-md hover:bg-[#C4710B] hover:text-white transition duration-300 text-center"
+                        className="mt-4 block bg-[#001A12] text-[#35604E] px-6 py-2 rounded-md hover:bg-[#35604E]/10 transition duration-300 text-center"
                       >
                         Sign Up as {persona.title}
                       </Link>
@@ -157,25 +131,19 @@ const Home: React.FC = () => {
         </section>
 
         {/* Featured Restaurants Section */}
-        <section className="py-16 bg-gradient-to-b from-[#1A2026] to-[#872816]">
+        <section className="py-16 bg-gradient-to-b from-[#001A12] to-[#00281c]">
           <div className="container mx-auto px-4">
-            <h2 className="text-4xl font-bold text-center mb-12 text-[#C4710B]">Featured Restaurants</h2>
+            <h2 className="text-4xl font-bold text-center mb-12 text-[#35604E]">Featured Restaurants</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {featuredRestaurants.map((restaurant) => (
-                <div key={restaurant.id} className="bg-[#1A2026] rounded-lg shadow-md overflow-hidden hover:shadow-lg transition duration-300">
-                  <Image
-                    src={restaurant.image || "/placeholder.svg"}
-                    alt={restaurant.name}
-                    width={400}
-                    height={300}
-                    className="w-full h-48 object-cover"
-                  />
+                <div key={restaurant.id} className="bg-[#00281c] rounded-lg shadow-md overflow-hidden transition duration-300 hover:shadow-lg">
+                  <Image src={restaurant.image || "/placeholder.svg"} alt={restaurant.name} width={400} height={300} className="w-full h-48 object-cover" />
                   <div className="p-6">
-                    <h3 className="text-xl font-semibold mb-2 text-[#C4710B]">{restaurant.name}</h3>
-                    <p className="text-[#F4D2BD] mb-4">{restaurant.cuisine} • {restaurant.price} • {restaurant.rating} ★</p>
+                    <h3 className="text-xl font-semibold mb-2 text-[#35604E]">{restaurant.name}</h3>
+                    <p className="text-[#a8d4c0] mb-4">{restaurant.cuisine} • {restaurant.price} • {restaurant.rating} ★</p>
                     <Link
                       href={`/restaurant/${restaurant.id}`}
-                      className="bg-[#1A2026] text-[#C4710B] px-4 py-2 rounded-md hover:bg-[#C4710B] hover:text-white transition duration-300"
+                      className="bg-[#001A12] text-[#35604E] px-4 py-2 rounded-md hover:bg-[#35604E]/10 transition duration-300"
                     >
                       View Menu
                     </Link>
