@@ -1,14 +1,15 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+/* Custom Font Import */
 @font-face {
-  font-family: 'Wellingborough';
-  src: url('/fonts/Wellingborough.woff2') format('woff2');
+  font-family: "Wellingborough";
+  src: url("/fonts/Wellingborough.ttf") format("truetype");
   font-weight: normal;
   font-style: normal;
   font-display: swap;
 }
-
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
 
 body {
   @apply antialiased;
@@ -25,9 +26,16 @@ html {
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
-  
+
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+}
+
+/* Custom logo font utility class */
+@layer utilities {
+  .font-logo {
+    font-family: "Wellingborough", "Roboto", "Arial", sans-serif;
   }
 }
