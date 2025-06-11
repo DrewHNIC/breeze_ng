@@ -57,14 +57,14 @@ const Header: React.FC = () => {
       </div>
 
       {isMenuOpen && (
-        <div className="md:hidden bg-gradient-to-br from-[#1d2c36] to-[#2a3a4d]">
+        <div className="md:hidden bg-gradient-to-br from-[#b9c6c8] to-[#2a3a4d]">
           <div className="container mx-auto px-4 py-2 space-y-2">
             {menuLinks.map(({ label, href }) => (
               <Link
                 key={label}
                 href={href}
                 onClick={() => setIsMenuOpen(false)}
-                className="block py-2 hover:text-[#b9c6c8] transition duration-300 capitalize"
+                className="block py-2 hover:text-[#8f8578] transition duration-300 capitalize"
               >
                 {label}
               </Link>
