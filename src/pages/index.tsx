@@ -110,7 +110,7 @@ const Home: React.FC = () => {
           )}
           <div className="absolute inset-0 bg-[#1A2026]/70 flex items-center justify-center px-4 text-center">
             <div className="max-w-xl">
-              <h1 className="text-4xl sm:text-6xl font-bold mb-4">Welcome to BREEZE</h1>
+              <h1 className="text-4xl sm:text-6xl font-bold font-logo mb-4 italic">Welcome to simplicity</h1>
               <p className="text-lg sm:text-2xl mb-6 italic">Make each delivery a breeze</p>
               <button
                 onClick={scrollToPersonas}

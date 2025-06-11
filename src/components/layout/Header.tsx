@@ -17,7 +17,7 @@ const Header: React.FC = () => {
             className="text-2xl font-bold font-logo tracking-wider hover:text-[#C4710B] transition duration-300"
             style={{ letterSpacing: "0.2em" }}
           >
-            S E R V I T U S
+            B R I S A
           </Link>
           <div className="hidden md:flex space-x-4">
             {["about", "contact", "faq", "#join-community", "login"].map((path, i) => (
