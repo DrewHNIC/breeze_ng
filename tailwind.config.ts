@@ -54,7 +54,8 @@ module.exports = {
   				'Roboto',
   				'Arial',
   				'sans-serif'
-  			]
+  			],
+			wellingborough: ['Wellingborough', 'sans-serif'],
   		},
   		backgroundImage: {
   			'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))'

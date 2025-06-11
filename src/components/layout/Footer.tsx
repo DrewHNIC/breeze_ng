@@ -8,7 +8,8 @@ const Footer: React.FC = () => {
       <div className="container mx-auto px-4">
         <div className="flex flex-wrap justify-between items-center">
           <div className="w-full md:w-1/3 mb-6 md:mb-0">
-            <h3 className="text-2xl font-bold mb-2">BREEZE</h3>
+            <h3 className="text-2xl font-bold mb-2 font-wellingborough">BREEZE</h3>
+
             <p className="text-sm">Making food delivery a breeze for everyone.</p>
           </div>
           <div className="w-full md:w-1/3 mb-6 md:mb-0">

@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Wellingborough';
+  src: url('/fonts/Wellingborough.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @import 'tailwindcss/base';
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
