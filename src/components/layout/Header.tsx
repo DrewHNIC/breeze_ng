@@ -12,30 +12,25 @@ const Header: React.FC = () => {
     { label: "About", href: "/about" },
     { label: "Contact", href: "/contact" },
     { label: "FAQ", href: "/faq" },
-    { label: "Join Community", href: "#join-community" }, // stays as anchor
+    { label: "Join Community", href: "#join-community" },
     { label: "Login", href: "/login" },
   ]
 
   return (
-    <header className="bg-gradient-to-r from-[#C4710B] to-[#872816] text-[#1A2026] fixed w-full z-10">
+    <header className="bg-gradient-to-r from-[#CCA281] to-[#70452F] text-[#1D1D27] fixed w-full z-10">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-4">
           <Link
             href="/"
-            className="text-2xl font-bold font-logo tracking-wider hover:text-[#1A2026] transition duration-300"
+            className="text-2xl font-bold font-logo tracking-wider hover:text-[#1D1D27] transition duration-300"
             style={{ letterSpacing: "0.2em" }}
           >
             B R E E Z E
           </Link>
 
-          {/* Desktop menu */}
           <div className="hidden md:flex space-x-4 font-logo">
             {menuLinks.map(({ label, href }) => (
-              <Link
-                key={label}
-                href={href}
-                className="hover:text-white transition duration-300 capitalize"
-              >
+              <Link key={label} href={href} className="hover:text-white transition duration-300 capitalize">
                 {label}
               </Link>
             ))}
@@ -44,7 +39,6 @@ const Header: React.FC = () => {
             </button>
           </div>
 
-          {/* Hamburger menu */}
           <button
             className="md:hidden"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -58,9 +52,8 @@ const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile menu */}
       {isMenuOpen && (
-        <div className="md:hidden bg-[#872816]">
+        <div className="md:hidden bg-[#70452F]">
           <div className="container mx-auto px-4 py-2 space-y-2">
             {menuLinks.map(({ label, href }) => (
               <Link
