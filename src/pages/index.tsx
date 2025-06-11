@@ -57,7 +57,7 @@ const Home: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#2A3140] text-[#266D99]">
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#C4710B] to-[#872816] text-[#872816]">
       <Head>
         <title>BREEZE - Revolutionizing Food Delivery</title>
         <meta name="description" content="BREEZE - A platform tailored towards a delivery persona" />
@@ -78,13 +78,13 @@ const Home: React.FC = () => {
           >
             <source src={currentVideo} type="video/mp4" />
           </video>
-          <div className="absolute inset-0 bg-gradient-to-br from-[#2A3140]/90 to-[#2A3140]/60 flex items-center justify-center">
-            <div className="text-center text-[#266D99]">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#C4710B]/80 to-[#872816]/60 flex items-center justify-center">
+            <div className="text-center text-[#872816]">
               <h1 className="text-6xl font-bold italic mb-4">Welcome to breeze</h1>
               <p className="text-2xl mb-8 italic">Driven. Dedicated. Ours.</p>
               <button
                 onClick={scrollToPersonas}
-                className="border border-[#266D99] text-[#266D99] px-6 py-2 rounded-md bg-transparent hover:text-[#BDF26D] hover:border-[#BDF26D] transition duration-300"
+                className="border border-[#872816] text-[#872816] px-6 py-2 rounded-md bg-transparent hover:text-[#1A2026] hover:border-[#1A2026] transition duration-300"
               >
                 Get Started
               </button>
@@ -93,14 +93,14 @@ const Home: React.FC = () => {
         </section>
 
         {/* User Personas */}
-        <section id="join-community" className="py-20 bg-gradient-to-b from-[#2A3140] to-[#364150]" ref={personasRef}>
+        <section id="join-community" className="py-20 bg-gradient-to-b from-[#C4710B] to-[#872816]" ref={personasRef}>
           <div className="max-w-6xl mx-auto px-6">
             <h2 className="text-4xl sm:text-5xl font-bold font-logo text-center mb-16 tracking-tight">Join Our Community</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               {personas.map((persona) => (
                 <div
                   key={persona.title}
-                  className="bg-gradient-to-br from-[#2A3140] to-[#364150] rounded-2xl shadow-lg overflow-hidden transform transition duration-300 hover:scale-[1.02] hover:shadow-xl"
+                  className="bg-[#872816] text-white rounded-2xl shadow-lg overflow-hidden transform transition duration-300 hover:scale-[1.02] hover:shadow-xl"
                 >
                   <Image
                     src={persona.image || "/placeholder.svg"}
@@ -110,11 +110,11 @@ const Home: React.FC = () => {
                     className="w-full h-52 object-cover rounded-t-2xl"
                   />
                   <div className="p-6">
-                    <h3 className="text-xl font-semibold text-[#BDF26D] uppercase mb-2 tracking-wide">{persona.title}</h3>
-                    <p className="text-gray-300 leading-relaxed mb-4">{persona.description}</p>
+                    <h3 className="text-xl font-semibold text-[#1A2026] uppercase mb-2 tracking-wide">{persona.title}</h3>
+                    <p className="text-gray-200 leading-relaxed mb-4">{persona.description}</p>
                     <Link
                       href={persona.link}
-                      className="inline-block mt-2 px-5 py-2 text-sm font-medium text-[#BDF26D] border border-[#BDF26D] rounded-md hover:bg-[#BDF26D] hover:text-[#2A3140] transition duration-300"
+                      className="inline-block mt-2 px-5 py-2 text-sm font-medium text-[#C4710B] border border-[#C4710B] rounded-md hover:bg-[#C4710B] hover:text-white transition duration-300"
                     >
                       Join as {persona.title}
                     </Link>
@@ -126,14 +126,14 @@ const Home: React.FC = () => {
         </section>
 
         {/* Featured Restaurants */}
-        <section className="py-20 bg-gradient-to-b from-[#2A3140] to-[#364150]">
+        <section className="py-20 bg-gradient-to-b from-[#C4710B] to-[#872816]">
           <div className="max-w-6xl mx-auto px-6">
             <h2 className="text-4xl sm:text-5xl font-bold font-logo text-center mb-16 tracking-tight">Featured Restaurants</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
               {featuredRestaurants.map((restaurant) => (
                 <div
                   key={restaurant.id}
-                  className="bg-gradient-to-br from-[#2A3140] to-[#364150] rounded-2xl shadow-lg overflow-hidden transform transition duration-300 hover:scale-[1.02] hover:shadow-xl"
+                  className="bg-[#872816] text-white rounded-2xl shadow-lg overflow-hidden transform transition duration-300 hover:scale-[1.02] hover:shadow-xl"
                 >
                   <Image
                     src={restaurant.image || "/placeholder.svg"}
@@ -143,11 +143,13 @@ const Home: React.FC = () => {
                     className="w-full h-52 object-cover rounded-t-2xl"
                   />
                   <div className="p-6">
-                    <h3 className="text-xl font-semibold text-[#BDF26D] mb-2">{restaurant.name}</h3>
-                    <p className="text-gray-400 text-sm mb-4">{restaurant.cuisine} • {restaurant.price} • {restaurant.rating} ★</p>
+                    <h3 className="text-xl font-semibold text-[#1A2026] mb-2">{restaurant.name}</h3>
+                    <p className="text-gray-300 text-sm mb-4">
+                      {restaurant.cuisine} • {restaurant.price} • {restaurant.rating} ★
+                    </p>
                     <Link
                       href={`/restaurant/${restaurant.id}`}
-                      className="inline-block mt-2 px-5 py-2 text-sm font-medium text-[#BDF26D] border border-[#BDF26D] rounded-md hover:bg-[#BDF26D] hover:text-[#2A3140] transition duration-300"
+                      className="inline-block mt-2 px-5 py-2 text-sm font-medium text-[#C4710B] border border-[#C4710B] rounded-md hover:bg-[#C4710B] hover:text-white transition duration-300"
                     >
                       View Menu
                     </Link>
