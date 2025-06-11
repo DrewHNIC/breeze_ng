@@ -5,7 +5,6 @@ import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import Link from 'next/link';
 import Image from 'next/image';
-import { supabase } from '../utils/supabase';
 
 interface Restaurant {
   id: number;
@@ -19,8 +18,7 @@ interface Restaurant {
 const Home: React.FC = () => {
   const personasRef = useRef<HTMLDivElement>(null);
   const [featuredRestaurants, setFeaturedRestaurants] = useState<Restaurant[]>([]);
-  const [videoUrls, setVideoUrls] = useState<string[]>([]);
-  const [currentVideo, setCurrentVideo] = useState<string>('');
+  const [currentVideo, setCurrentVideo] = useState<string>('/videos/hero-video-1.mp4');
 
   const scrollToPersonas = () => {
     personasRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -38,56 +36,30 @@ const Home: React.FC = () => {
         console.error('Error fetching featured restaurants:', error);
       }
     };
-
     fetchFeaturedRestaurants();
   }, []);
 
   useEffect(() => {
-    const fetchVideos = async () => {
-      const { data, error } = await supabase.storage
-        .from('landing-videos')
-        .list('', { limit: 100 });
-
-      if (error) {
-        console.error('Error fetching videos:', error);
-        return;
-      }
-
-      const urls = await Promise.all(
-        data
-          .filter((file) => file.name.endsWith('.mp4'))
-          .map(async (file) => {
-            const { data: urlData } = await supabase
-              .storage
-              .from('landing-videos')
-              .createSignedUrl(file.name, 60 * 60);
-            return urlData?.signedUrl || '';
-          })
-      );
-
-      setVideoUrls(urls.filter(Boolean));
-
-      const random = urls[Math.floor(Math.random() * urls.length)];
-      if (random) setCurrentVideo(random);
+    const videos = [
+      '/videos/hero-video-1.mp4',
+      '/videos/hero-video-2.mp4',
+      '/videos/hero-video-3.mp4',
+      '/videos/hero-video-4.mp4',
+      '/videos/hero-video-5.mp4',
+      '/videos/hero-video-6.mp4',
+    ];
+    const changeVideo = () => {
+      const randomIndex = Math.floor(Math.random() * videos.length);
+      setCurrentVideo(videos[randomIndex]);
     };
-
-    fetchVideos();
-
-    const intervalId = setInterval(() => {
-      if (videoUrls.length > 0) {
-        const random = videoUrls[Math.floor(Math.random() * videoUrls.length)];
-        setCurrentVideo(random);
-      }
-    }, 10000);
-
+    const intervalId = setInterval(changeVideo, 10000);
     return () => clearInterval(intervalId);
-  }, [videoUrls]);
+  }, []);
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-b from-[#1A2026] via-[#1F2B33] to-[#1A2026] text-[#872816]">
+    <div className="flex flex-col min-h-screen bg-[#2A3140] text-[#266D99]">
       <Head>
         <title>BREEZE - Revolutionizing Food Delivery</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="description" content="BREEZE - A platform tailored towards a delivery persona" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -96,25 +68,23 @@ const Home: React.FC = () => {
 
       <main className="flex-grow">
         {/* Hero Section */}
-        <section className="relative h-[100dvh] sm:h-screen">
-          {currentVideo && (
-            <video
-              key={currentVideo}
-              autoPlay
-              loop
-              muted
-              className="absolute inset-0 w-full h-full object-cover"
-            >
-              <source src={currentVideo} type="video/mp4" />
-            </video>
-          )}
-          <div className="absolute inset-0 bg-[#1A2026]/70 flex items-center justify-center px-4 text-center">
-            <div className="max-w-xl">
-              <h1 className="text-4xl sm:text-6xl font-bold  mb-2 italic">Breeze</h1>
-              <p className="text-lg sm:text-2xl mb-6 italic">Driven. Reliable. Ours.</p>
+        <section className="relative h-screen">
+          <video
+            key={currentVideo}
+            autoPlay
+            loop
+            muted
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src={currentVideo} type="video/mp4" />
+          </video>
+          <div className="absolute inset-0 bg-gradient-to-br from-[#2A3140]/90 to-[#2A3140]/60 flex items-center justify-center">
+            <div className="text-center text-[#266D99]">
+              <h1 className="text-6xl font-bold italic mb-4">Welcome to breeze</h1>
+              <p className="text-2xl mb-8 italic">Driven. Dedicated. Ours.</p>
               <button
                 onClick={scrollToPersonas}
-                className="border-2 border-[#872816] text-[#872816] px-6 py-2 rounded-md text-lg font-semibold font-logo hover:bg-[#872816] hover:text-[#1A2026] transition"
+                className="border border-[#266D99] text-[#266D99] px-6 py-2 rounded-md bg-transparent hover:text-[#BDF26D] hover:border-[#BDF26D] transition duration-300"
               >
                 Get Started
               </button>
@@ -123,72 +93,70 @@ const Home: React.FC = () => {
         </section>
 
         {/* User Personas */}
-        <section id="join-community" className="py-20 bg-gradient-to-b from-[#1A2026] to-[#1F2B33]" ref={personasRef}>
-  <div className="max-w-6xl mx-auto px-6">
-    <h2 className="text-4xl sm:text-5xl font-bold font-logo text-center mb-16 tracking-tight">Join Our Community</h2>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-      {personas.map((persona) => (
-        <div
-          key={persona.title}
-          className="bg-[#1F262D] rounded-2xl shadow-lg overflow-hidden transform transition duration-300 hover:scale-[1.02] hover:shadow-xl"
-        >
-          <Image
-            src={persona.image || "/placeholder.svg"}
-            alt={persona.title}
-            width={600}
-            height={400}
-            className="w-full h-52 object-cover rounded-t-2xl"
-          />
-          <div className="p-6">
-            <h3 className="text-xl font-semibold text-[#C4710B] uppercase mb-2 tracking-wide">{persona.title}</h3>
-            <p className="text-gray-300 leading-relaxed mb-4">{persona.description}</p>
-            <Link
-              href={persona.link}
-              className="inline-block mt-2 px-5 py-2 text-sm font-medium text-[#872816] border border-[#872816] rounded-md hover:bg-[#872816] hover:text-[#1A2026] transition duration-300"
-            >
-              Join as {persona.title}
-            </Link>
+        <section id="join-community" className="py-20 bg-gradient-to-b from-[#2A3140] to-[#364150]" ref={personasRef}>
+          <div className="max-w-6xl mx-auto px-6">
+            <h2 className="text-4xl sm:text-5xl font-bold font-logo text-center mb-16 tracking-tight">Join Our Community</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              {personas.map((persona) => (
+                <div
+                  key={persona.title}
+                  className="bg-gradient-to-br from-[#2A3140] to-[#364150] rounded-2xl shadow-lg overflow-hidden transform transition duration-300 hover:scale-[1.02] hover:shadow-xl"
+                >
+                  <Image
+                    src={persona.image || "/placeholder.svg"}
+                    alt={persona.title}
+                    width={600}
+                    height={400}
+                    className="w-full h-52 object-cover rounded-t-2xl"
+                  />
+                  <div className="p-6">
+                    <h3 className="text-xl font-semibold text-[#BDF26D] uppercase mb-2 tracking-wide">{persona.title}</h3>
+                    <p className="text-gray-300 leading-relaxed mb-4">{persona.description}</p>
+                    <Link
+                      href={persona.link}
+                      className="inline-block mt-2 px-5 py-2 text-sm font-medium text-[#BDF26D] border border-[#BDF26D] rounded-md hover:bg-[#BDF26D] hover:text-[#2A3140] transition duration-300"
+                    >
+                      Join as {persona.title}
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
-  </div>
-</section>
-
+        </section>
 
         {/* Featured Restaurants */}
-        <section className="py-20 bg-gradient-to-b from-[#1A2026] to-[#1F2B33]">
-  <div className="max-w-6xl mx-auto px-6">
-    <h2 className="text-4xl sm:text-5xl font-bold font-logo text-center mb-16 tracking-tight">Featured Restaurants</h2>
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
-      {featuredRestaurants.map((restaurant) => (
-        <div
-          key={restaurant.id}
-          className="bg-[#1F262D] rounded-2xl shadow-lg overflow-hidden transform transition duration-300 hover:scale-[1.02] hover:shadow-xl"
-        >
-          <Image
-            src={restaurant.image || "/placeholder.svg"}
-            alt={restaurant.name}
-            width={600}
-            height={400}
-            className="w-full h-52 object-cover rounded-t-2xl"
-          />
-          <div className="p-6">
-            <h3 className="text-xl font-semibold text-[#C4710B] mb-2">{restaurant.name}</h3>
-            <p className="text-gray-400 text-sm mb-4">{restaurant.cuisine} • {restaurant.price} • {restaurant.rating} ★</p>
-            <Link
-              href={`/restaurant/${restaurant.id}`}
-              className="inline-block mt-2 px-5 py-2 text-sm font-medium text-[#872816] border border-[#872816] rounded-md hover:bg-[#872816] hover:text-[#1A2026] transition duration-300"
-            >
-              View Menu
-            </Link>
+        <section className="py-20 bg-gradient-to-b from-[#2A3140] to-[#364150]">
+          <div className="max-w-6xl mx-auto px-6">
+            <h2 className="text-4xl sm:text-5xl font-bold font-logo text-center mb-16 tracking-tight">Featured Restaurants</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+              {featuredRestaurants.map((restaurant) => (
+                <div
+                  key={restaurant.id}
+                  className="bg-gradient-to-br from-[#2A3140] to-[#364150] rounded-2xl shadow-lg overflow-hidden transform transition duration-300 hover:scale-[1.02] hover:shadow-xl"
+                >
+                  <Image
+                    src={restaurant.image || "/placeholder.svg"}
+                    alt={restaurant.name}
+                    width={600}
+                    height={400}
+                    className="w-full h-52 object-cover rounded-t-2xl"
+                  />
+                  <div className="p-6">
+                    <h3 className="text-xl font-semibold text-[#BDF26D] mb-2">{restaurant.name}</h3>
+                    <p className="text-gray-400 text-sm mb-4">{restaurant.cuisine} • {restaurant.price} • {restaurant.rating} ★</p>
+                    <Link
+                      href={`/restaurant/${restaurant.id}`}
+                      className="inline-block mt-2 px-5 py-2 text-sm font-medium text-[#BDF26D] border border-[#BDF26D] rounded-md hover:bg-[#BDF26D] hover:text-[#2A3140] transition duration-300"
+                    >
+                      View Menu
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
-  </div>
-</section>
-
+        </section>
       </main>
 
       <Footer />
