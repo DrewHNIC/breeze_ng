@@ -19,7 +19,7 @@ const Header: React.FC = () => {
           >
             B R E E Z E
           </Link>
-          <div className="hidden md:flex space-x-4">
+          <div className="hidden md:flex space-x-4 font-logo">
             {["about", "contact", "faq", "#join-community", "login"].map((path, i) => (
               <Link key={i} href={`/${path}`} className="hover:text-[#C4710B] transition duration-300 capitalize">
                 {path.replace("#", "")}
