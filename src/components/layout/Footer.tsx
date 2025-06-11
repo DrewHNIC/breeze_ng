@@ -9,10 +9,10 @@ const Footer: React.FC = () => {
         <div className="flex flex-wrap justify-between items-center">
           <div className="w-full md:w-1/3 mb-6 md:mb-0">
             <h3 className="text-2xl font-bold font-logo mb-2">BREEZE</h3>
-            <p className="text-sm">Making food delivery a breeze for everyone.</p>
+            <p className="text-sm">Making food delivery as simple as can be.</p>
           </div>
           <div className="w-full md:w-1/3 mb-6 md:mb-0">
-            <h4 className="text-lg font-semibold mb-2">Quick Links</h4>
+            <h4 className="text-lg font-semibold font-logo mb-2">Quick Links</h4>
             <ul className="text-sm text-gray-300">
               {["home", "about", "contact", "faq", "terms-of-service", "privacy-policy"].map((page, i) => (
                 <li key={i} className="mb-1">
@@ -24,7 +24,7 @@ const Footer: React.FC = () => {
             </ul>
           </div>
           <div className="w-full md:w-1/3">
-            <h4 className="text-lg font-semibold mb-2">Connect With Us</h4>
+            <h4 className="text-lg font-semibold font-logo mb-2">Connect With Us</h4>
             <div className="flex space-x-4">
               {[FaFacebookF, FaTwitter, FaInstagram, FaLinkedinIn].map((Icon, i) => (
                 <a
