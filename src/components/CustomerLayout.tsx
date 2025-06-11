@@ -141,7 +141,7 @@ const CustomerLayout: React.FC<CustomerLayoutProps> = ({ children, title }) => {
               {/* Left section: Logo + Avatar (mobile only) */}
               <div className="flex items-center space-x-2">
                 <Link href="/customer/home" className="flex items-center">
-                  <span className="text-2xl font-bold text-[#8f8578]">BREEZE</span>
+                  <span className="text-2xl font-bold font-logo text-[#8f8578]">BREEZE</span>
                 </Link>
                 <div className="md:hidden ml-2">
                   {customerProfile?.avatar_url ? (
