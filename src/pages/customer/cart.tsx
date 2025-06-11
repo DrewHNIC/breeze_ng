@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/router"
+import dynamic from "next/dynamic"
 import { supabase } from "@/utils/supabase"
 import CustomerLayout from "../../components/CustomerLayout"
-import VendorCartGroup from "../../components/customer/VendorCartGroup"
-import CartSummary from "../../components/customer/CartSummary"
 import { ShoppingCart, AlertCircle, Loader2, ArrowLeft } from "lucide-react"
 import Link from "next/link"
+
+// Dynamically import components with ssr: false to prevent server-side rendering
+const VendorCartGroup = dynamic(() => import("../../components/customer/VendorCartGroup"), { ssr: false })
+const CartSummary = dynamic(() => import("../../components/customer/CartSummary"), { ssr: false })
 
 interface CartItem {
   cartItemId: string
@@ -51,31 +54,46 @@ interface GroupedCartItems {
   }
 }
 
+// Use dynamic import with ssr: false to prevent server-side rendering of the entire page
 const CartPage = () => {
   const router = useRouter()
-  const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [groupedItems, setGroupedItems] = useState<GroupedCartItems>({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [totalItems, setTotalItems] = useState<number>(0)
   const [subtotal, setSubtotal] = useState<number>(0)
+  const [isClient, setIsClient] = useState(false)
+
+  // Set isClient to true when component mounts (client-side only)
+  useEffect(() => {
+    setIsClient(true)
+  }, [])
 
   useEffect(() => {
+    // Only run on client side
+    if (!isClient) return
+
     const checkAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      if (!session) {
-        router.push("/login")
-      } else {
-        fetchCartItems()
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        if (!session) {
+          router.push("/login")
+        } else {
+          fetchCartItems()
+        }
+      } catch (error) {
+        console.error("Auth check error:", error)
       }
     }
 
     checkAuth()
-  }, [router])
+  }, [router, isClient])
 
   const fetchCartItems = async () => {
+    if (!isClient) return
+
     try {
       setIsLoading(true)
       setError(null)
@@ -104,69 +122,60 @@ const CartPage = () => {
         return
       }
 
-      // Transform the data with proper null checks
-      const transformedData = (data || []).map((item: any) => ({
-        cartItemId: item.id || "",
-        menu_item_id: item.menu_item_id || "",
-        quantity: Number(item.quantity) || 0,
-        special_instructions: item.special_instructions,
-        vendor_id: item.vendor_id || "",
-        menu_items: item.menu_items || {
-          id: "",
-          name: "Unknown Item",
-          description: "",
-          price: 0,
-          image_url: null,
-        },
-        vendors: item.vendors || {
-          id: item.vendor_id || "",
-          store_name: "Unknown Vendor",
-          vendor_profiles: [{ logo_url: null }],
-        },
-      }))
-
-      setCartItems(transformedData)
-
       // Group items by vendor with proper number handling
       const grouped: GroupedCartItems = {}
       let itemCount = 0
       let cartSubtotal = 0
 
-      transformedData.forEach((item: CartItem) => {
-        const vendorId = item.vendor_id
-        const menuItem = item.menu_items
-        const vendor = item.vendors
+      if (Array.isArray(data)) {
+        data.forEach((item: any) => {
+          if (!item) return
 
-        if (!menuItem || !vendorId) return // Skip if essential data is missing
-
-        if (!grouped[vendorId]) {
-          grouped[vendorId] = {
-            vendor: {
-              id: vendorId,
-              name: vendor?.store_name || "Unknown Vendor",
-              logo_url: vendor?.vendor_profiles?.[0]?.logo_url || null,
-            },
-            items: [],
+          const vendorId = item.vendor_id || ""
+          const menuItem = item.menu_items || {
+            id: "",
+            name: "Unknown Item",
+            description: "",
+            price: 0,
+            image_url: null,
           }
-        }
+          const vendor = item.vendors || {
+            id: vendorId,
+            store_name: "Unknown Vendor",
+            vendor_profiles: [{ logo_url: null }],
+          }
 
-        grouped[vendorId].items.push({
-          cartItemId: item.cartItemId,
-          menu_item_id: item.menu_item_id,
-          name: menuItem.name || "Unknown Item",
-          description: menuItem.description || "",
-          price: Number(menuItem.price) || 0,
-          quantity: Number(item.quantity) || 0,
-          image_url: menuItem.image_url,
-          special_instructions: item.special_instructions,
+          if (!vendorId) return // Skip if essential data is missing
+
+          if (!grouped[vendorId]) {
+            grouped[vendorId] = {
+              vendor: {
+                id: vendorId,
+                name: vendor?.store_name || "Unknown Vendor",
+                logo_url: vendor?.vendor_profiles?.[0]?.logo_url || null,
+              },
+              items: [],
+            }
+          }
+
+          const quantity = Number(item.quantity) || 0
+          const price = Number(menuItem.price) || 0
+
+          grouped[vendorId].items.push({
+            cartItemId: item.id || "",
+            menu_item_id: item.menu_item_id || "",
+            name: menuItem.name || "Unknown Item",
+            description: menuItem.description || "",
+            price: price,
+            quantity: quantity,
+            image_url: menuItem.image_url,
+            special_instructions: item.special_instructions,
+          })
+
+          itemCount += quantity
+          cartSubtotal += price * quantity
         })
-
-        const quantity = Number(item.quantity) || 0
-        const price = Number(menuItem.price) || 0
-
-        itemCount += quantity
-        cartSubtotal += price * quantity
-      })
+      }
 
       setGroupedItems(grouped)
       setTotalItems(itemCount)
@@ -180,6 +189,8 @@ const CartPage = () => {
   }
 
   const handleUpdateQuantity = async (cartItemId: string, newQuantity: number) => {
+    if (!isClient) return
+
     try {
       const { error } = await supabase.from("cart_items").update({ quantity: newQuantity }).eq("id", cartItemId)
 
@@ -195,6 +206,8 @@ const CartPage = () => {
   }
 
   const handleRemoveItem = async (cartItemId: string) => {
+    if (!isClient) return
+
     try {
       const { error } = await supabase.from("cart_items").delete().eq("id", cartItemId)
 
@@ -210,6 +223,8 @@ const CartPage = () => {
   }
 
   const handleUpdateInstructions = async (cartItemId: string, instructions: string) => {
+    if (!isClient) return
+
     try {
       const { error } = await supabase
         .from("cart_items")
@@ -227,6 +242,19 @@ const CartPage = () => {
     }
   }
 
+  // Don't render anything on server
+  if (!isClient) {
+    return (
+      <CustomerLayout title="Your Cart">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex justify-center items-center py-20">
+            <Loader2 className="h-12 w-12 animate-spin text-[#b9c6c8]" />
+          </div>
+        </div>
+      </CustomerLayout>
+    )
+  }
+
   const vendorCount = Object.keys(groupedItems).length
 
   return (
@@ -238,7 +266,7 @@ const CartPage = () => {
           </button>
           <h1 className="text-2xl font-bold flex items-center text-[#1d2c36]">
             <ShoppingCart className="h-6 w-6 mr-2" />
-            Your Cart {totalItems > 0 && `(${totalItems} items)`}
+            Your Cart {totalItems > 0 ? `(${totalItems} items)` : ""}
           </h1>
         </div>
 
@@ -264,7 +292,7 @@ const CartPage = () => {
               <ShoppingCart className="h-10 w-10 text-[#1d2c36]" />
             </div>
             <h2 className="text-xl font-bold mb-2 text-[#1d2c36]">Your cart is empty</h2>
-            <p className="text-[#1d2c36] mb-6">{"Looks like you haven't added any items to your cart yet."}</p>
+            <p className="text-[#1d2c36] mb-6">Looks like you haven&apos;t added any items to your cart yet.</p>
             <Link
               href="/customer/search"
               className="bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] text-[#1d2c36] px-6 py-3 rounded-lg font-medium hover:from-[#a8b5b8] hover:to-[#97a4a7] transition-all duration-300 inline-block"
@@ -335,4 +363,5 @@ const CartPage = () => {
   )
 }
 
-export default CartPage
+// Export the component with noSSR to prevent server-side rendering
+export default dynamic(() => Promise.resolve(CartPage), { ssr: false })
