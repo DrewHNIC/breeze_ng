@@ -13,7 +13,7 @@ const Footer: React.FC = () => {
   ]
 
   return (
-    <footer className="bg-gradient-to-b from-[#CCA281] to-[#70452F] text-[#1D1D27] py-8">
+    <footer className="bg-gradient-to-b from-[#b9c6c8] to-[#1d2c36] text-[#1d2c36] py-8">
       <div className="container mx-auto px-4">
         <div className="flex flex-wrap justify-between items-center">
           <div className="w-full md:w-1/3 mb-6 md:mb-0">
@@ -23,10 +23,10 @@ const Footer: React.FC = () => {
 
           <div className="w-full md:w-1/3 mb-6 md:mb-0">
             <h4 className="text-lg font-semibold font-logo mb-2">Quick Links</h4>
-            <ul className="text-sm text-[#70452F]">
+            <ul className="text-sm text-[#8f8578]">
               {quickLinks.map(({ label, href }, i) => (
                 <li key={i} className="mb-1">
-                  <Link href={href} className="hover:text-[#1D1D27] transition duration-200">
+                  <Link href={href} className="hover:text-[#b9c6c8] transition duration-200">
                     {label}
                   </Link>
                 </li>
@@ -43,7 +43,7 @@ const Footer: React.FC = () => {
                   href="#"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-[#1D1D27] text-[#CCA281] hover:bg-[#CCA281] hover:text-white transition duration-300"
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-[#1d2c36] text-[#b9c6c8] hover:bg-[#b9c6c8] hover:text-[#1d2c36] transition duration-300"
                 >
                   <Icon size={20} />
                 </a>
@@ -52,7 +52,7 @@ const Footer: React.FC = () => {
           </div>
         </div>
 
-        <div className="mt-8 text-center text-sm text-[#70452F]">
+        <div className="mt-8 text-center text-sm text-[#8f8578]">
           <p>&copy; {new Date().getFullYear()} BREEZE. All rights reserved.</p>
         </div>
       </div>
