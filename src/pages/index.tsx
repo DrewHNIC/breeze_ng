@@ -110,11 +110,11 @@ const Home: React.FC = () => {
           )}
           <div className="absolute inset-0 bg-[#1A2026]/70 flex items-center justify-center px-4 text-center">
             <div className="max-w-xl">
-              <h1 className="text-4xl sm:text-6xl font-bold font-logo mb-2 italic">Welcome to simplicity</h1>
+              <h1 className="text-4xl sm:text-6xl font-bold font-logo mb-2 italic">Welcome</h1>
               <p className="text-lg sm:text-2xl mb-6 italic">For ourselves, by ourselves.</p>
               <button
                 onClick={scrollToPersonas}
-                className="border-2 border-[#872816] text-[#872816] px-6 py-2 rounded-md text-lg font-semibold hover:bg-[#872816] hover:text-[#1A2026] transition"
+                className="border-2 border-[#872816] text-[#872816] px-6 py-2 rounded-md text-lg font-semibold font-logo hover:bg-[#872816] hover:text-[#1A2026] transition"
               >
                 Get Started
               </button>
@@ -125,7 +125,7 @@ const Home: React.FC = () => {
         {/* User Personas */}
         <section id="join-community" className="py-16 bg-gradient-to-b from-[#1A2026] to-[#1F2B33]" ref={personasRef}>
           <div className="container mx-auto px-4">
-            <h2 className="text-4xl font-bold text-center mb-12">Join Our Community</h2>
+            <h2 className="text-4xl font-bold font-logo text-center mb-12">Join Our Community</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {personas.map((persona) => (
                 <div key={persona.title} className="bg-[#232B33] rounded-lg shadow-md overflow-hidden hover:shadow-lg transition duration-300">
@@ -159,7 +159,7 @@ const Home: React.FC = () => {
         {/* Featured Restaurants */}
         <section className="py-16 bg-gradient-to-b from-[#1A2026] to-[#1F2B33]">
           <div className="container mx-auto px-4">
-            <h2 className="text-4xl font-bold text-center mb-12">Featured Restaurants</h2>
+            <h2 className="text-4xl font-bold font-logo text-center mb-12">Featured Restaurants</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {featuredRestaurants.map((restaurant) => (
                 <div key={restaurant.id} className="bg-[#232B33] rounded-lg shadow-md overflow-hidden hover:shadow-lg transition duration-300">
