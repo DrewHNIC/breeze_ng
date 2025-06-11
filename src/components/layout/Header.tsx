@@ -8,6 +8,14 @@ import { Search } from "lucide-react"
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
+  const menuLinks = [
+    { label: "About", href: "/about" },
+    { label: "Contact", href: "/contact" },
+    { label: "FAQ", href: "/faq" },
+    { label: "Join Community", href: "#join-community" }, // stays as anchor
+    { label: "Login", href: "/login" },
+  ]
+
   return (
     <header className="bg-gradient-to-r from-[#C4710B] to-[#872816] text-[#1A2026] fixed w-full z-10">
       <div className="container mx-auto px-4">
@@ -19,16 +27,24 @@ const Header: React.FC = () => {
           >
             B R E E Z E
           </Link>
+
+          {/* Desktop menu */}
           <div className="hidden md:flex space-x-4 font-logo">
-            {["about", "contact", "faq", "#join-community", "login"].map((path, i) => (
-              <Link key={i} href={`/${path}`} className="hover:text-white transition duration-300 capitalize">
-                {path.replace("#", "")}
+            {menuLinks.map(({ label, href }) => (
+              <Link
+                key={label}
+                href={href}
+                className="hover:text-white transition duration-300 capitalize"
+              >
+                {label}
               </Link>
             ))}
             <button className="hover:text-white transition duration-300">
               <Search size={20} />
             </button>
           </div>
+
+          {/* Hamburger menu */}
           <button
             className="md:hidden"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -41,17 +57,19 @@ const Header: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Mobile menu */}
       {isMenuOpen && (
         <div className="md:hidden bg-[#872816]">
           <div className="container mx-auto px-4 py-2 space-y-2">
-            {["About", "Contact", "Faq", "#Join-community", "Login"].map((path, i) => (
+            {menuLinks.map(({ label, href }) => (
               <Link
-                key={i}
-                href={`/${path}`}
-                className="block py-2 hover:text-white transition duration-300 capitalize"
+                key={label}
+                href={href}
                 onClick={() => setIsMenuOpen(false)}
+                className="block py-2 hover:text-white transition duration-300 capitalize"
               >
-                {path.replace("#", "")}
+                {label}
               </Link>
             ))}
           </div>
