@@ -1,4 +1,3 @@
-// pages/customer/checkout.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -84,15 +83,15 @@ const CheckoutPage = () => {
 
         // Fetch user profile to pre-fill contact info
         const { data: customerData } = await supabase
-          .from("customers") // Changed from profiles to customers
-          .select("name, email, phone_number, address, city, state, zip_code") // Updated field names
+          .from("customers")
+          .select("name, email, phone_number, address, city, state, zip_code")
           .eq("id", session.user.id)
           .single()
 
         if (customerData) {
           setContactInfo({
-            fullName: customerData.name || "", // Changed from full_name to name
-            phone: customerData.phone_number || "", // Changed from phone to phone_number
+            fullName: customerData.name || "",
+            phone: customerData.phone_number || "",
             email: customerData.email || session.user.email || "",
           })
 
@@ -107,45 +106,60 @@ const CheckoutPage = () => {
           }
         }
 
-        // In your fetchCartItems function, modify the query to also get the vendor_id from menu_items
-let query = supabase
-.from("cart_items")
-.select(`
-  id,
-  menu_item_id,
-  quantity,
-  special_instructions,
-  vendor_id,
-  menu_items!cart_items_menu_item_id_fkey(id, name, price, image_url, vendor_id),
-  vendors!cart_items_vendor_id_fkey(id, store_name)
-`)
-.eq("customer_id", session.user.id)
+        // Modified query to get cart items with menu items and vendor info
+        let query = supabase
+          .from("cart_items")
+          .select(`
+            id,
+            menu_item_id,
+            quantity,
+            special_instructions,
+            menu_items(
+              id, 
+              name, 
+              price, 
+              image_url, 
+              vendor_id,
+              vendors(id, store_name)
+            )
+          `)
+          .eq("customer_id", session.user.id)
 
-        // If vendorId is provided and is a valid string (not "null"), filter by vendor
-if (vendorId && typeof vendorId === "string" && vendorId !== "null") {
-  query = query.eq("vendor_id", vendorId)
-}
+        // If vendorId is provided and is a valid string (not "null"), we need to filter by vendor
+        // Since vendor_id in cart_items is null, we need to filter through menu_items
+        if (vendorId && typeof vendorId === "string" && vendorId !== "null") {
+          // We'll filter after getting the data since we can't directly filter on nested relationships
+        }
 
-const { data, error } = await query
+        const { data, error } = await query
 
         if (error) {
           console.error("Error fetching cart items:", error)
+          setPaymentError(`Failed to load cart items: ${error.message}`)
           return
         }
 
-        // Transform the data
-        const transformedItems = data
-  .filter((item) => item.menu_items) // Filter out items with missing menu_items
-  .map((item: any) => ({
-    id: item.id,
-    menu_item_id: item.menu_item_id,
-    quantity: item.quantity,
-    price: item.menu_items.price,
-    name: item.menu_items.name,
-    // Prioritize vendor_id from menu_items if cart_items vendor_id is missing
-    vendor_id: item.vendor_id || item.menu_items.vendor_id || "",
-    vendor_name: item.vendors?.store_name || "Unknown Vendor",
-  }))
+        console.log("Raw cart data:", data)
+
+        // Transform the data and filter by vendor if needed
+        let transformedItems = data
+          .filter((item) => item.menu_items) // Filter out items with missing menu_items
+          .map((item: any) => ({
+            id: item.id,
+            menu_item_id: item.menu_item_id,
+            quantity: item.quantity,
+            price: item.menu_items.price,
+            name: item.menu_items.name,
+            vendor_id: item.menu_items.vendor_id || "",
+            vendor_name: item.menu_items.vendors?.store_name || "Unknown Vendor",
+          }))
+
+        // Filter by vendor if vendorId is provided
+        if (vendorId && typeof vendorId === "string" && vendorId !== "null") {
+          transformedItems = transformedItems.filter(item => item.vendor_id === vendorId)
+        }
+
+        console.log("Transformed cart items:", transformedItems)
 
         setCartItems(transformedItems)
 
@@ -166,6 +180,7 @@ const { data, error } = await query
         setTotal(itemSubtotal + deliveryFee + calculatedServiceFee + calculatedVat)
       } catch (error) {
         console.error("Error in fetchCartItems:", error)
+        setPaymentError("An unexpected error occurred while loading your cart.")
       } finally {
         setIsLoading(false)
       }
@@ -213,183 +228,168 @@ const { data, error } = await query
       }
 
       // Save user info if requested
-    if (saveInfo) {
-      await supabase
-        .from("customers")
-        .update({
-          name: contactInfo.fullName,
-          phone_number: contactInfo.phone,
-          address: deliveryAddress.address,
-          city: deliveryAddress.city,
-          state: deliveryAddress.state,
-          zip_code: deliveryAddress.zipCode,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", session.user.id)
-    }
+      if (saveInfo) {
+        await supabase
+          .from("customers")
+          .update({
+            name: contactInfo.fullName,
+            phone_number: contactInfo.phone,
+            address: deliveryAddress.address,
+            city: deliveryAddress.city,
+            state: deliveryAddress.state,
+            zip_code: deliveryAddress.zipCode,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", session.user.id)
+      }
 
       // Determine vendor ID - use the one from URL or from the first cart item
       let resolvedVendorId = null;
     
-    // First try to get vendor ID from URL parameter
-if (typeof vendorId === "string" && vendorId !== "null" && vendorId.trim() !== "") {
-  resolvedVendorId = vendorId;
-  console.log("Using vendor ID from URL:", resolvedVendorId);
-} 
-// If not available, try to get from cart items
-else if (cartItems.length > 0) {
-  // Try to find any cart item with a valid vendor_id
-  const itemWithVendor = cartItems.find(item => 
-    item.vendor_id && 
-    item.vendor_id !== "null" && 
-    item.vendor_id.trim() !== ""
-  );
-  
-  if (itemWithVendor) {
-    resolvedVendorId = itemWithVendor.vendor_id;
-    console.log("Using vendor ID from cart item:", resolvedVendorId);
-  }
-}
+      // First try to get vendor ID from URL parameter
+      if (typeof vendorId === "string" && vendorId !== "null" && vendorId.trim() !== "") {
+        resolvedVendorId = vendorId;
+        console.log("Using vendor ID from URL:", resolvedVendorId);
+      } 
+      // If not available, try to get from cart items
+      else if (cartItems.length > 0) {
+        // Try to find any cart item with a valid vendor_id
+        const itemWithVendor = cartItems.find(item => 
+          item.vendor_id && 
+          item.vendor_id !== "null" && 
+          item.vendor_id.trim() !== ""
+        );
+        
+        if (itemWithVendor) {
+          resolvedVendorId = itemWithVendor.vendor_id;
+          console.log("Using vendor ID from cart item:", resolvedVendorId);
+        }
+      }
 
-// If still no vendor ID, try to fetch it from the menu_items table
-if (!resolvedVendorId && cartItems.length > 0) {
-  try {
-    const { data: menuItemData, error: menuItemError } = await supabase
-      .from("menu_items")
-      .select("vendor_id")
-      .eq("id", cartItems[0].menu_item_id)
-      .single();
-    
-    if (!menuItemError && menuItemData && menuItemData.vendor_id) {
-      resolvedVendorId = menuItemData.vendor_id;
-      console.log("Using vendor ID from menu_items table:", resolvedVendorId);
-    }
-  } catch (error) {
-    console.error("Error fetching menu item vendor:", error);
-  }
-}
+      // Validate that we have a valid UUID for vendor_id
+      const isValidUUID = (uuid: string | null | undefined): boolean => {
+        return Boolean(uuid && typeof uuid === 'string' && 
+               /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid));
+      };
 
-// Validate that we have a valid UUID for vendor_id
-const isValidUUID = (uuid: string | null | undefined): boolean => {
-  return Boolean(uuid && typeof uuid === 'string' && 
-         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid));
-};
+      if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
+        setPaymentError("Unable to determine vendor. Please go back and select a vendor.");
+        setIsProcessing(false);
+        return;
+      }
 
-if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
-  setPaymentError("Unable to determine vendor. Please go back and select a vendor.");
-  setIsProcessing(false);
-  return;
-}
+      console.log("Using vendor ID:", resolvedVendorId);
 
-    console.log("Using vendor ID:", resolvedVendorId); // Debug log
-    console.log("vendorId from URL:", vendorId);
-    console.log("cartItems:", cartItems);
+      // Create order in database
+      const { data: orderData, error: orderError } = await supabase
+        .from("orders")
+        .insert({
+          customer_id: session.user.id,
+          status: "pending",
+          total_amount: total,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          delivery_address: deliveryAddress.address,
+          vendor_id: resolvedVendorId,
+          rider_id: null,
+          estimated_delivery_time: null,
+          payment_method: paymentMethod,
+          payment_status: "pending",
+          actual_delivery_time: null,
+          contact_number: contactInfo.phone,
+          special_instructions: deliveryAddress.instructions || null,
+        })
+        .select()
+        .single()
 
-    // Create order in database
-    const { data: orderData, error: orderError } = await supabase
-      .from("orders")
-      .insert({
-        customer_id: session.user.id,
-        status: "pending",
-        total_amount: total,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        delivery_address: deliveryAddress.address,
-        vendor_id: resolvedVendorId, // Now we're sure this is a valid UUID
-        rider_id: null,
-        estimated_delivery_time: null,
-        payment_method: paymentMethod,
-        payment_status: "pending",
-        actual_delivery_time: null,
-        contact_number: contactInfo.phone,
-        special_instructions: deliveryAddress.instructions || null,
-      })
-      .select()
-      .single()
+      if (orderError || !orderData) {
+        console.error("Error creating order:", orderError)
+        setPaymentError("Failed to create order. Please try again.")
+        setIsProcessing(false)
+        return
+      }
 
-    if (orderError || !orderData) {
-      console.error("Error creating order:", orderError)
-      setPaymentError("Failed to create order. Please try again.")
-      setIsProcessing(false)
-      return
-    }
-
-  // Create order items
-  const orderItems = cartItems.map((item) => ({
-    order_id: orderData.id,
-    menu_item_id: item.menu_item_id,
-    quantity: item.quantity,
-    unit_price: item.price,
-    total_price: item.price * item.quantity,
-    special_instructions: "",
-    created_at: new Date().toISOString(),
-  }))
-
-  const { error: itemsError } = await supabase.from("order_items").insert(orderItems)
-
-  if (itemsError) {
-    console.error("Error creating order items:", itemsError)
-
-    // If order items creation fails, delete the order to avoid orphaned orders
-    await supabase.from("orders").delete().eq("id", orderData.id)
-
-    setPaymentError("Failed to create order items. Please try again.")
-    setIsProcessing(false)
-    return
-  }
-
-  // Initialize payment with PayStack
-  const response = await fetch("/api/payments/initialize-order", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      orderId: orderData.id,
-      amount: total,
-      email: contactInfo.email,
-      metadata: {
+      // Create order items
+      const orderItems = cartItems.map((item) => ({
         order_id: orderData.id,
-        customer_id: session.user.id,
-        delivery_address: deliveryAddress.address,
-      },
-    }),
-  })
+        menu_item_id: item.menu_item_id,
+        quantity: item.quantity,
+        unit_price: item.price,
+        total_price: item.price * item.quantity,
+        special_instructions: "",
+        created_at: new Date().toISOString(),
+      }))
 
-  const paymentData = await response.json()
+      const { error: itemsError } = await supabase.from("order_items").insert(orderItems)
 
-  if (!paymentData.success) {
-    // If payment initialization fails, delete the order and order items
-    await supabase.from("order_items").delete().eq("order_id", orderData.id)
+      if (itemsError) {
+        console.error("Error creating order items:", itemsError)
 
-    await supabase.from("orders").delete().eq("id", orderData.id)
+        // If order items creation fails, delete the order to avoid orphaned orders
+        await supabase.from("orders").delete().eq("id", orderData.id)
 
-    setPaymentError(paymentData.error || "Failed to initialize payment")
-    setIsProcessing(false)
-    return
+        setPaymentError("Failed to create order items. Please try again.")
+        setIsProcessing(false)
+        return
+      }
+
+      // Initialize payment with PayStack
+      const response = await fetch("/api/payments/initialize-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderId: orderData.id,
+          amount: total,
+          email: contactInfo.email,
+          metadata: {
+            order_id: orderData.id,
+            customer_id: session.user.id,
+            delivery_address: deliveryAddress.address,
+          },
+        }),
+      })
+
+      const paymentData = await response.json()
+
+      if (!paymentData.success) {
+        // If payment initialization fails, delete the order and order items
+        await supabase.from("order_items").delete().eq("order_id", orderData.id)
+        await supabase.from("orders").delete().eq("id", orderData.id)
+
+        setPaymentError(paymentData.error || "Failed to initialize payment")
+        setIsProcessing(false)
+        return
+      }
+
+      // Clear cart items for this vendor after successful order creation
+      if (resolvedVendorId) {
+        // Since vendor_id in cart_items is null, we need to delete based on menu_item_id
+        const menuItemIds = cartItems.map(item => item.menu_item_id)
+        await supabase
+          .from("cart_items")
+          .delete()
+          .eq("customer_id", session.user.id)
+          .in("menu_item_id", menuItemIds)
+      }
+
+      // Redirect to PayStack payment page
+      window.location.href = paymentData.data.authorization_url
+    } catch (error) {
+      console.error("Error in handlePlaceOrder:", error)
+      setPaymentError("An unexpected error occurred. Please try again.")
+      setIsProcessing(false)
+    }
   }
-
-  // Clear cart items for this vendor after successful order creation
-  if (resolvedVendorId) {
-    await supabase.from("cart_items").delete().eq("customer_id", session.user.id).eq("vendor_id", resolvedVendorId)
-  }
-
-  // Redirect to PayStack payment page
-  window.location.href = paymentData.data.authorization_url
-} catch (error) {
-  console.error("Error in handlePlaceOrder:", error)
-  setPaymentError("An unexpected error occurred. Please try again.")
-  setIsProcessing(false)
-}
-}
 
   if (isLoading) {
     return (
       <CustomerLayout title="Checkout">
         <div className="container mx-auto px-4 py-8">
           <div className="flex justify-center items-center py-16">
-            <Loader2 className="h-8 w-8 animate-spin text-red-500" />
-            <span className="ml-2 text-lg">Loading checkout...</span>
+            <Loader2 className="h-8 w-8 animate-spin text-[#b9c6c8]" />
+            <span className="ml-2 text-lg text-[#1d2c36]">Loading checkout...</span>
           </div>
         </div>
       </CustomerLayout>
@@ -401,16 +401,16 @@ if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
       <CustomerLayout title="Checkout">
         <div className="container mx-auto px-4 py-8">
           <div className="text-center py-16 max-w-md mx-auto">
-            <div className="bg-red-100 text-red-500 rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+            <div className="bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] text-[#1d2c36] rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
               <AlertCircle className="h-8 w-8" />
             </div>
-            <h2 className="text-2xl font-bold mb-4">Your cart is empty</h2>
-            <p className="text-gray-600 mb-6">
+            <h2 className="text-2xl font-bold mb-4 text-[#1d2c36]">Your cart is empty</h2>
+            <p className="text-[#1d2c36] mb-6">
               You need to add some items to your cart before proceeding to checkout.
             </p>
             <Link
               href="/customer/search"
-          className="bg-red-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-red-600 transition-colors inline-block"
+              className="bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] text-[#1d2c36] px-6 py-3 rounded-lg font-medium hover:from-[#a8b5b8] hover:to-[#97a4a7] transition-all duration-300 inline-flex items-center"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
               Browse Restaurants
@@ -425,14 +425,14 @@ if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
     <CustomerLayout title="Checkout">
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center mb-6">
-          <Link href="/customer/cart" className="text-gray-600 hover:text-red-500 mr-2">
+          <Link href="/customer/cart" className="text-[#1d2c36] hover:text-[#b9c6c8] mr-2">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-2xl font-bold">Checkout</h1>
+          <h1 className="text-2xl font-bold text-[#1d2c36]">Checkout</h1>
         </div>
 
         {paymentError && (
-          <div className="bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-start">
+          <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 flex items-start">
             <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
             <p>{paymentError}</p>
           </div>
@@ -442,23 +442,23 @@ if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
           {/* Left Column - Forms */}
           <div className="lg:col-span-2 space-y-8">
             {/* Delivery Address */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-100 p-6">
-              <h2 className="text-xl font-bold mb-4 flex items-center">
-                <MapPin className="h-5 w-5 mr-2 text-red-500" />
+            <div className="bg-gradient-to-r from-[#8f8578] to-[#b9c6c8] rounded-lg shadow-md border border-[#b9c6c8] p-6">
+              <h2 className="text-xl font-bold mb-4 flex items-center text-[#1d2c36]">
+                <MapPin className="h-5 w-5 mr-2 text-[#1d2c36]" />
                 Delivery Address
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[#1d2c36] mb-1">
                     Street Address*
                   </label>
                   <input
                     type="text"
                     value={deliveryAddress.address}
                     onChange={(e) => setDeliveryAddress({ ...deliveryAddress, address: e.target.value })}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
-                      formErrors.address ? "border-red-500" : "border-gray-300"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#b9c6c8] focus:border-[#b9c6c8] ${
+                      formErrors.address ? "border-red-500" : "border-[#b9c6c8]"
                     }`}
                     placeholder="123 Main Street"
                   />
@@ -468,13 +468,13 @@ if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">City*</label>
+                  <label className="block text-sm font-medium text-[#1d2c36] mb-1">City*</label>
                   <input
                     type="text"
                     value={deliveryAddress.city}
                     onChange={(e) => setDeliveryAddress({ ...deliveryAddress, city: e.target.value })}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
-                      formErrors.city ? "border-red-500" : "border-gray-300"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#b9c6c8] focus:border-[#b9c6c8] ${
+                      formErrors.city ? "border-red-500" : "border-[#b9c6c8]"
                     }`}
                     placeholder="Lagos"
                   />
@@ -484,13 +484,13 @@ if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">State*</label>
+                  <label className="block text-sm font-medium text-[#1d2c36] mb-1">State*</label>
                   <input
                     type="text"
                     value={deliveryAddress.state}
                     onChange={(e) => setDeliveryAddress({ ...deliveryAddress, state: e.target.value })}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
-                      formErrors.state ? "border-red-500" : "border-gray-300"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#b9c6c8] focus:border-[#b9c6c8] ${
+                      formErrors.state ? "border-red-500" : "border-[#b9c6c8]"
                     }`}
                     placeholder="Lagos State"
                   />
@@ -500,24 +500,24 @@ if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Zip Code</label>
+                  <label className="block text-sm font-medium text-[#1d2c36] mb-1">Zip Code</label>
                   <input
                     type="text"
                     value={deliveryAddress.zipCode}
                     onChange={(e) => setDeliveryAddress({ ...deliveryAddress, zipCode: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    className="w-full px-4 py-2 border border-[#b9c6c8] rounded-lg focus:ring-2 focus:ring-[#b9c6c8] focus:border-[#b9c6c8]"
                     placeholder="100001"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[#1d2c36] mb-1">
                     Delivery Instructions (Optional)
                   </label>
                   <textarea
                     value={deliveryAddress.instructions}
                     onChange={(e) => setDeliveryAddress({ ...deliveryAddress, instructions: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    className="w-full px-4 py-2 border border-[#b9c6c8] rounded-lg focus:ring-2 focus:ring-[#b9c6c8] focus:border-[#b9c6c8]"
                     placeholder="E.g., Ring the doorbell, call when nearby, etc."
                     rows={2}
                   />
@@ -526,18 +526,18 @@ if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
             </div>
 
             {/* Contact Information */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-100 p-6">
-              <h2 className="text-xl font-bold mb-4">Contact Information</h2>
+            <div className="bg-gradient-to-r from-[#8f8578] to-[#b9c6c8] rounded-lg shadow-md border border-[#b9c6c8] p-6">
+              <h2 className="text-xl font-bold mb-4 text-[#1d2c36]">Contact Information</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name*</label>
+                  <label className="block text-sm font-medium text-[#1d2c36] mb-1">Full Name*</label>
                   <input
                     type="text"
                     value={contactInfo.fullName}
                     onChange={(e) => setContactInfo({ ...contactInfo, fullName: e.target.value })}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
-                      formErrors.fullName ? "border-red-500" : "border-gray-300"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#b9c6c8] focus:border-[#b9c6c8] ${
+                      formErrors.fullName ? "border-red-500" : "border-[#b9c6c8]"
                     }`}
                     placeholder="John Doe"
                   />
@@ -547,13 +547,13 @@ if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number*</label>
+                  <label className="block text-sm font-medium text-[#1d2c36] mb-1">Phone Number*</label>
                   <input
                     type="tel"
                     value={contactInfo.phone}
                     onChange={(e) => setContactInfo({ ...contactInfo, phone: e.target.value })}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
-                      formErrors.phone ? "border-red-500" : "border-gray-300"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#b9c6c8] focus:border-[#b9c6c8] ${
+                      formErrors.phone ? "border-red-500" : "border-[#b9c6c8]"
                     }`}
                     placeholder="+234 800 000 0000"
                   />
@@ -563,13 +563,13 @@ if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email*</label>
+                  <label className="block text-sm font-medium text-[#1d2c36] mb-1">Email*</label>
                   <input
                     type="email"
                     value={contactInfo.email}
                     onChange={(e) => setContactInfo({ ...contactInfo, email: e.target.value })}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 ${
-                      formErrors.email ? "border-red-500" : "border-gray-300"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#b9c6c8] focus:border-[#b9c6c8] ${
+                      formErrors.email ? "border-red-500" : "border-[#b9c6c8]"
                     }`}
                     placeholder="john@example.com"
                   />
@@ -584,9 +584,9 @@ if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
                       type="checkbox"
                       checked={saveInfo}
                       onChange={(e) => setSaveInfo(e.target.checked)}
-                      className="h-4 w-4 text-red-500 focus:ring-red-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-[#b9c6c8] focus:ring-[#b9c6c8] border-[#b9c6c8] rounded"
                     />
-                    <span className="ml-2 text-sm text-gray-600">
+                    <span className="ml-2 text-sm text-[#1d2c36]">
                       Save this information for future orders
                     </span>
                   </label>
@@ -595,45 +595,45 @@ if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
             </div>
 
             {/* Payment Method */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-100 p-6">
-              <h2 className="text-xl font-bold mb-4 flex items-center">
-                <CreditCard className="h-5 w-5 mr-2 text-red-500" />
+            <div className="bg-gradient-to-r from-[#8f8578] to-[#b9c6c8] rounded-lg shadow-md border border-[#b9c6c8] p-6">
+              <h2 className="text-xl font-bold mb-4 flex items-center text-[#1d2c36]">
+                <CreditCard className="h-5 w-5 mr-2 text-[#1d2c36]" />
                 Payment Method
               </h2>
 
               <div className="space-y-3">
-                <label className="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer bg-gray-50">
+                <label className="flex items-center p-3 border border-[#b9c6c8] rounded-lg cursor-pointer bg-gradient-to-r from-[#b9c6c8]/20 to-[#8f8578]/20">
                   <input
                     type="radio"
                     name="paymentMethod"
                     value="card"
                     checked={paymentMethod === "card"}
                     onChange={() => setPaymentMethod("card")}
-                    className="h-4 w-4 text-red-500 focus:ring-red-500 border-gray-300"
+                    className="h-4 w-4 text-[#b9c6c8] focus:ring-[#b9c6c8] border-[#b9c6c8]"
                   />
                   <span className="ml-2 flex items-center">
-                    <CreditCard className="h-5 w-5 mr-2 text-gray-600" />
-                    <span className="font-medium">Credit/Debit Card</span>
+                    <CreditCard className="h-5 w-5 mr-2 text-[#1d2c36]" />
+                    <span className="font-medium text-[#1d2c36]">Credit/Debit Card</span>
                   </span>
-                  <span className="ml-auto text-sm text-gray-500">Powered by PayStack</span>
+                  <span className="ml-auto text-sm text-[#1d2c36]">Powered by PayStack</span>
                 </label>
 
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-600">
+                <div className="p-4 bg-gradient-to-r from-[#b9c6c8]/20 to-[#8f8578]/20 rounded-lg border border-[#b9c6c8] text-sm text-[#1d2c36]">
                   <p>
                     You'll be redirected to PayStack's secure payment page to complete your payment.
-                    Your payment information is encrypted and secure!.
+                    Your payment information is encrypted and secure!
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Estimated Delivery */}
-            <div className="bg-white rounded-lg shadow-md border border-gray-100 p-6">
-              <h2 className="text-xl font-bold mb-4 flex items-center">
-                <Clock className="h-5 w-5 mr-2 text-red-500" />
+            <div className="bg-gradient-to-r from-[#8f8578] to-[#b9c6c8] rounded-lg shadow-md border border-[#b9c6c8] p-6">
+              <h2 className="text-xl font-bold mb-4 flex items-center text-[#1d2c36]">
+                <Clock className="h-5 w-5 mr-2 text-[#1d2c36]" />
                 Estimated Delivery
               </h2>
-              <p className="text-gray-700">
+              <p className="text-[#1d2c36]">
                 Your order will be delivered within minutes after payment confirmation.
               </p>
             </div>
@@ -653,7 +653,7 @@ if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
               <button
                 onClick={handlePlaceOrder}
                 disabled={isProcessing}
-                className={`w-full mt-4 bg-red-500 text-white py-3 rounded-lg font-medium hover:bg-red-600 transition-colors flex items-center justify-center ${
+                className={`w-full mt-4 bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] text-[#1d2c36] py-3 rounded-lg font-medium hover:from-[#a8b5b8] hover:to-[#97a4a7] transition-all duration-300 flex items-center justify-center ${
                   isProcessing ? "opacity-70 cursor-not-allowed" : ""
                 }`}
               >
@@ -667,13 +667,13 @@ if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
                 )}
               </button>
 
-              <p className="mt-4 text-sm text-gray-500 text-center">
+              <p className="mt-4 text-sm text-[#1d2c36] text-center">
                 By placing your order, you agree to our{" "}
-                <Link href="/terms" className="text-red-500 hover:underline">
+                <Link href="/terms" className="text-[#b9c6c8] hover:underline">
                   Terms of Service
                 </Link>{" "}
                 and{" "}
-                <Link href="/privacy" className="text-red-500 hover:underline">
+                <Link href="/privacy" className="text-[#b9c6c8] hover:underline">
                   Privacy Policy
                 </Link>
                 .
