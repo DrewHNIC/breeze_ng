@@ -110,6 +110,7 @@ const CartPage = () => {
 
       console.log("Fetching cart items for user:", session.user.id)
 
+      // Use the specific foreign key relationship as suggested by the error
       const { data, error } = await supabase
         .from("cart_items")
         .select(`
@@ -119,7 +120,7 @@ const CartPage = () => {
           special_instructions,
           vendor_id,
           menu_items(id, name, description, price, image_url),
-          vendors(id, store_name, vendor_profiles(logo_url))
+          vendors!cart_items_vendor_id_fkey(id, store_name, vendor_profiles(logo_url))
         `)
         .eq("customer_id", session.user.id)
 
