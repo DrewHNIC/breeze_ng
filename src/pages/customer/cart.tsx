@@ -24,6 +24,7 @@ interface CartItem {
     description: string
     price: number
     image_url: string | null
+    vendor_id: string
   }
   vendors: {
     id: string
@@ -110,7 +111,7 @@ const CartPage = () => {
 
       console.log("Fetching cart items for user:", session.user.id)
 
-      // Use the specific foreign key relationship as suggested by the error
+      // Get cart items with menu items that include vendor_id, then get vendor info
       const { data, error } = await supabase
         .from("cart_items")
         .select(`
@@ -118,9 +119,15 @@ const CartPage = () => {
           menu_item_id,
           quantity,
           special_instructions,
-          vendor_id,
-          menu_items(id, name, description, price, image_url),
-          vendors!cart_items_vendor_id_fkey(id, store_name, vendor_profiles(logo_url))
+          menu_items(
+            id, 
+            name, 
+            description, 
+            price, 
+            image_url, 
+            vendor_id,
+            vendors(id, store_name, vendor_profiles(logo_url))
+          )
         `)
         .eq("customer_id", session.user.id)
 
@@ -146,23 +153,16 @@ const CartPage = () => {
 
       if (Array.isArray(data) && data.length > 0) {
         data.forEach((item: any) => {
-          if (!item) return
+          if (!item || !item.menu_items) return
 
-          const vendorId = item.vendor_id || ""
-          const menuItem = item.menu_items || {
-            id: "",
-            name: "Unknown Item",
-            description: "",
-            price: 0,
-            image_url: null,
-          }
-          const vendor = item.vendors || {
-            id: vendorId,
-            store_name: "Unknown Vendor",
-            vendor_profiles: [{ logo_url: null }],
-          }
+          const menuItem = item.menu_items
+          const vendorId = menuItem.vendor_id
+          const vendor = menuItem.vendors
 
-          if (!vendorId) return // Skip if essential data is missing
+          if (!vendorId || !vendor) {
+            console.log("Skipping item due to missing vendor info:", item)
+            return
+          }
 
           if (!grouped[vendorId]) {
             grouped[vendorId] = {
