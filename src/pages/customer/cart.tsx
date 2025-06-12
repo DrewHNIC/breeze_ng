@@ -5,7 +5,7 @@ import { useRouter } from "next/router"
 import dynamic from "next/dynamic"
 import { supabase } from "@/utils/supabase"
 import CustomerLayout from "../../components/CustomerLayout"
-import { ShoppingCart, AlertCircle, Loader2, ArrowLeft } from "lucide-react"
+import { ShoppingCart, AlertCircle, Loader2, ArrowLeft, Bug } from 'lucide-react'
 import Link from "next/link"
 
 // Dynamically import components with ssr: false to prevent server-side rendering
@@ -63,6 +63,7 @@ const CartPage = () => {
   const [totalItems, setTotalItems] = useState<number>(0)
   const [subtotal, setSubtotal] = useState<number>(0)
   const [isClient, setIsClient] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<any>(null)
 
   // Set isClient to true when component mounts (client-side only)
   useEffect(() => {
@@ -85,6 +86,7 @@ const CartPage = () => {
         }
       } catch (error) {
         console.error("Auth check error:", error)
+        setError(`Auth check error: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
 
@@ -101,7 +103,12 @@ const CartPage = () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
-      if (!session) return
+      if (!session) {
+        setError("No active session found")
+        return
+      }
+
+      console.log("Fetching cart items for user:", session.user.id)
 
       const { data, error } = await supabase
         .from("cart_items")
@@ -111,23 +118,32 @@ const CartPage = () => {
           quantity,
           special_instructions,
           vendor_id,
-          menu_items!cart_items_menu_item_id_fkey(id, name, description, price, image_url),
-          vendors!cart_items_vendor_id_fkey(id, store_name, vendor_profiles(logo_url))
+          menu_items(id, name, description, price, image_url),
+          vendors(id, store_name, vendor_profiles(logo_url))
         `)
         .eq("customer_id", session.user.id)
 
       if (error) {
         console.error("Error fetching cart items:", error)
-        setError("Failed to load your cart. Please try again.")
+        setError(`Failed to load your cart: ${error.message}`)
         return
       }
+
+      // Save raw data for debugging
+      setDebugInfo({
+        rawData: data,
+        userId: session.user.id,
+        timestamp: new Date().toISOString()
+      })
+
+      console.log("Cart items fetched:", data)
 
       // Group items by vendor with proper number handling
       const grouped: GroupedCartItems = {}
       let itemCount = 0
       let cartSubtotal = 0
 
-      if (Array.isArray(data)) {
+      if (Array.isArray(data) && data.length > 0) {
         data.forEach((item: any) => {
           if (!item) return
 
@@ -175,14 +191,20 @@ const CartPage = () => {
           itemCount += quantity
           cartSubtotal += price * quantity
         })
+      } else {
+        console.log("No cart items found or data is not an array:", data)
       }
+
+      console.log("Grouped items:", grouped)
+      console.log("Total items:", itemCount)
+      console.log("Subtotal:", cartSubtotal)
 
       setGroupedItems(grouped)
       setTotalItems(itemCount)
       setSubtotal(cartSubtotal)
     } catch (error) {
       console.error("Error in fetchCartItems:", error)
-      setError("An unexpected error occurred. Please try again.")
+      setError(`An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`)
     } finally {
       setIsLoading(false)
     }
@@ -287,19 +309,34 @@ const CartPage = () => {
             </button>
           </div>
         ) : totalItems === 0 ? (
-          <div className="bg-gradient-to-r from-[#8f8578] to-[#b9c6c8] rounded-lg shadow-md p-8 text-center">
-            <div className="bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-6">
-              <ShoppingCart className="h-10 w-10 text-[#1d2c36]" />
+          <>
+            <div className="bg-gradient-to-r from-[#8f8578] to-[#b9c6c8] rounded-lg shadow-md p-8 text-center">
+              <div className="bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] rounded-full h-20 w-20 flex items-center justify-center mx-auto mb-6">
+                <ShoppingCart className="h-10 w-10 text-[#1d2c36]" />
+              </div>
+              <h2 className="text-xl font-bold mb-2 text-[#1d2c36]">Your cart is empty</h2>
+              <p className="text-[#1d2c36] mb-6">Looks like you haven&apos;t added any items to your cart yet.</p>
+              <Link
+                href="/customer/search"
+                className="bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] text-[#1d2c36] px-6 py-3 rounded-lg font-medium hover:from-[#a8b5b8] hover:to-[#97a4a7] transition-all duration-300 inline-block"
+              >
+                Browse Restaurants
+              </Link>
             </div>
-            <h2 className="text-xl font-bold mb-2 text-[#1d2c36]">Your cart is empty</h2>
-            <p className="text-[#1d2c36] mb-6">Looks like you haven&apos;t added any items to your cart yet.</p>
-            <Link
-              href="/customer/search"
-              className="bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] text-[#1d2c36] px-6 py-3 rounded-lg font-medium hover:from-[#a8b5b8] hover:to-[#97a4a7] transition-all duration-300 inline-block"
-            >
-              Browse Restaurants
-            </Link>
-          </div>
+            
+            {/* Debug section - only visible in development */}
+            {process.env.NODE_ENV !== 'production' && debugInfo && (
+              <div className="mt-8 p-4 border border-[#b9c6c8] rounded-lg bg-[#f5f5f5]">
+                <div className="flex items-center mb-2">
+                  <Bug className="h-5 w-5 mr-2 text-[#1d2c36]" />
+                  <h3 className="font-bold text-[#1d2c36]">Debug Information</h3>
+                </div>
+                <pre className="text-xs overflow-auto p-2 bg-[#1d2c36] text-[#8f8578] rounded">
+                  {JSON.stringify(debugInfo, null, 2)}
+                </pre>
+              </div>
+            )}
+          </>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
@@ -314,7 +351,6 @@ const CartPage = () => {
                 />
               ))}
             </div>
-
             <div className="lg:col-span-1">
               <div className="sticky top-24">
                 <CartSummary
