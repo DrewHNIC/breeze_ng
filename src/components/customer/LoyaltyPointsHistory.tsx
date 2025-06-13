@@ -1,7 +1,6 @@
-// components/customer/LoyaltyPointsHistory.tsx
 import { useState, useEffect } from "react";
 import { supabase } from "@/utils/supabase";
-import { Loader2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, Bug } from 'lucide-react';
 
 interface PointsHistoryItem {
   id: string;
@@ -14,14 +13,17 @@ interface PointsHistoryItem {
 export default function LoyaltyPointsHistory({ customerId }: { customerId: string }) {
   const [history, setHistory] = useState<PointsHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); // Added error state
+  const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
   
   useEffect(() => {
     const fetchPointsHistory = async () => {
       setLoading(true);
-      setError(null); // Clear any previous errors
+      setError(null);
       
       try {
+        console.log("Fetching points history for customer:", customerId);
+        
         // Fetch orders with points earned (no redemption)
         const { data: earnedData, error: earnedError } = await supabase
           .from("orders")
@@ -33,10 +35,12 @@ export default function LoyaltyPointsHistory({ customerId }: { customerId: strin
         
         if (earnedError) {
           console.error("Error fetching earned points history:", earnedError);
-          setError("Failed to load earned points history."); // Set error message
+          setError("Failed to load earned points history.");
           setLoading(false);
           return;
         }
+        
+        console.log("Earned points data:", earnedData);
         
         // Fetch orders with points redeemed
         const { data: redeemedData, error: redeemedError } = await supabase
@@ -48,10 +52,20 @@ export default function LoyaltyPointsHistory({ customerId }: { customerId: strin
         
         if (redeemedError) {
           console.error("Error fetching redeemed points history:", redeemedError);
-          setError("Failed to load redeemed points history."); // Set error message
+          setError("Failed to load redeemed points history.");
           setLoading(false);
           return;
         }
+        
+        console.log("Redeemed points data:", redeemedData);
+        
+        // Save debug info
+        setDebugInfo({
+          customerId,
+          earnedData,
+          redeemedData,
+          timestamp: new Date().toISOString()
+        });
         
         // Format earned points
         const earnedPoints = earnedData.map(order => ({
@@ -76,10 +90,11 @@ export default function LoyaltyPointsHistory({ customerId }: { customerId: strin
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
         
+        console.log("Combined history:", combinedHistory);
         setHistory(combinedHistory);
       } catch (error) {
         console.error("Error in fetchPointsHistory:", error);
-        setError("An unexpected error occurred. Please try again."); // Set generic error message
+        setError("An unexpected error occurred. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -93,40 +108,66 @@ export default function LoyaltyPointsHistory({ customerId }: { customerId: strin
   if (loading) {
     return (
       <div className="flex justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-red-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#b9c6c8]" />
       </div>
     );
   }
   
   if (error) {
     return (
-      <div className="text-center py-8 text-gray-500">
-        <p>{error}</p> {/* Display error message */}
+      <div className="text-center py-8 text-[#1d2c36]">
+        <p>{error}</p>
+        
+        {/* Debug section - only visible in development */}
+        {process.env.NODE_ENV !== 'production' && debugInfo && (
+          <div className="mt-4 p-4 border border-[#b9c6c8] rounded-lg bg-[#f5f5f5] text-left">
+            <div className="flex items-center mb-2">
+              <Bug className="h-5 w-5 mr-2 text-[#1d2c36]" />
+              <h3 className="font-bold text-[#1d2c36]">Debug Information</h3>
+            </div>
+            <pre className="text-xs overflow-auto p-2 bg-[#1d2c36] text-[#8f8578] rounded">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
     );
   }
   
   if (history.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center py-8 text-[#1d2c36]">
         <p>No loyalty points activity yet.</p>
+        
+        {/* Debug section - only visible in development */}
+        {process.env.NODE_ENV !== 'production' && debugInfo && (
+          <div className="mt-4 p-4 border border-[#b9c6c8] rounded-lg bg-[#f5f5f5] text-left">
+            <div className="flex items-center mb-2">
+              <Bug className="h-5 w-5 mr-2 text-[#1d2c36]" />
+              <h3 className="font-bold text-[#1d2c36]">Debug Information</h3>
+            </div>
+            <pre className="text-xs overflow-auto p-2 bg-[#1d2c36] text-[#8f8578] rounded">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
     );
   }
   
   return (
     <div className="space-y-4">
-      <h3 className="font-medium text-lg">Points Activity</h3>
+      <h3 className="font-medium text-lg text-[#1d2c36]">Points Activity</h3>
       <div className="space-y-2">
         {history.map((item) => (
           <div 
             key={item.id} 
-            className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 shadow-sm"
+            className="flex items-center justify-between p-3 bg-gradient-to-r from-[#8f8578]/10 to-[#b9c6c8]/10 rounded-lg border border-[#b9c6c8] shadow-sm"
           >
             <div className="flex items-center">
               {item.type === "earned" ? (
-                <div className="bg-green-100 p-2 rounded-full mr-3">
-                  <TrendingUp className="h-5 w-5 text-green-600" />
+                <div className="bg-[#b9c6c8]/30 p-2 rounded-full mr-3">
+                  <TrendingUp className="h-5 w-5 text-[#1d2c36]" />
                 </div>
               ) : (
                 <div className="bg-yellow-100 p-2 rounded-full mr-3">
@@ -134,20 +175,33 @@ export default function LoyaltyPointsHistory({ customerId }: { customerId: strin
                 </div>
               )}
               <div>
-                <p className="font-medium">
+                <p className="font-medium text-[#1d2c36]">
                   {item.type === "earned" ? "Earned Points" : "Redeemed Points"}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-[#1d2c36]/70">
                   Order #{item.order_id.substring(0, 8)} • {new Date(item.created_at).toLocaleDateString()}
                 </p>
               </div>
             </div>
-            <div className={`font-bold ${item.type === "earned" ? "text-green-600" : "text-yellow-600"}`}>
+            <div className={`font-bold ${item.type === "earned" ? "text-[#1d2c36]" : "text-yellow-600"}`}>
               {item.type === "earned" ? "+" : "-"}{item.points}
             </div>
           </div>
         ))}
       </div>
+      
+      {/* Debug section - only visible in development */}
+      {process.env.NODE_ENV !== 'production' && debugInfo && (
+        <div className="mt-8 p-4 border border-[#b9c6c8] rounded-lg bg-[#f5f5f5]">
+          <div className="flex items-center mb-2">
+            <Bug className="h-5 w-5 mr-2 text-[#1d2c36]" />
+            <h3 className="font-bold text-[#1d2c36]">Debug Information</h3>
+          </div>
+          <pre className="text-xs overflow-auto p-2 bg-[#1d2c36] text-[#8f8578] rounded">
+            {JSON.stringify(debugInfo, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
