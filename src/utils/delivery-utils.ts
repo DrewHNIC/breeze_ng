@@ -110,7 +110,10 @@ export async function geocodeAddress(address: Address): Promise<Coordinates> {
   // For now, we'll return mock coordinates based on the address string
 
   // This is just a simple hash function to generate consistent mock coordinates
-  const hashString = `${address.address} ${address.city} ${address.state}`
+  const addressStr = address.address || ""
+  const cityStr = address.city || ""
+  const stateStr = address.state || ""
+  const hashString = `${addressStr} ${cityStr} ${stateStr}`
   let hash = 0
   for (let i = 0; i < hashString.length; i++) {
     hash = (hash << 5) - hash + hashString.charCodeAt(i)

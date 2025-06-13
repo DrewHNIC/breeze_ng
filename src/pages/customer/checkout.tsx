@@ -177,7 +177,7 @@ const CheckoutPage = () => {
               price, 
               image_url, 
               vendor_id,
-              vendors(id, store_name, address, city, state)
+              vendors(id, store_name, business_address, city, state)
             )
           `)
           .eq("customer_id", session.user.id)
@@ -209,7 +209,7 @@ const CheckoutPage = () => {
             name: item.menu_items.name,
             vendor_id: item.menu_items.vendor_id || "",
             vendor_name: item.menu_items.vendors?.store_name || "Unknown Vendor",
-            vendor_address: item.menu_items.vendors?.address || "",
+            vendor_address: item.menu_items.vendors?.business_address || "",
             vendor_city: item.menu_items.vendors?.city || "",
             vendor_state: item.menu_items.vendors?.state || "",
           }))
