@@ -24,7 +24,6 @@ import {
   calculateServiceFee,
   formatDeliveryTime,
   validateAddress,
-  formatAddressForDisplay,
   type Address,
   type Coordinates,
 } from "@/utils/delivery-utils"
@@ -75,13 +74,12 @@ const CheckoutPage = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [subtotal, setSubtotal] = useState(0)
-  const [deliveryFee, setDeliveryFee] = useState(0) // Start with 0, will be calculated
+  const [deliveryFee, setDeliveryFee] = useState(0)
   const [serviceFee, setServiceFee] = useState(0)
   const [vat, setVat] = useState(0)
   const [total, setTotal] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentError, setPaymentError] = useState("")
-  const [paymentSuccess, setPaymentSuccess] = useState(false)
 
   // Delivery calculation states
   const [distance, setDistance] = useState<number | null>(null)
@@ -146,15 +144,14 @@ const CheckoutPage = () => {
             email: customerData.email || session.user.email || "",
           })
 
-          if (customerData.address) {
-            setDeliveryAddress({
-              address: customerData.address || "",
-              city: customerData.city || "",
-              state: customerData.state || "",
-              zipCode: customerData.zip_code || "",
-              instructions: "",
-            })
-          }
+          // Pre-fill delivery address from customer data
+          setDeliveryAddress({
+            address: customerData.address || "",
+            city: customerData.city || "",
+            state: customerData.state || "",
+            zipCode: customerData.zip_code || "",
+            instructions: "",
+          })
 
           // Set customer profile with loyalty points
           setCustomerProfile({
@@ -163,10 +160,16 @@ const CheckoutPage = () => {
             loyalty_points: customerData.loyalty_points || 0,
           })
 
-          console.log("Customer loyalty points:", customerData.loyalty_points)
+          console.log("Customer data loaded:", {
+            name: customerData.name,
+            address: customerData.address,
+            city: customerData.city,
+            state: customerData.state,
+            loyalty_points: customerData.loyalty_points,
+          })
         }
 
-        // First, fetch vendor information directly if vendorId is provided
+        // Fetch vendor information directly if vendorId is provided
         let vendorAddress = ""
         let vendorCity = ""
         let vendorState = ""
@@ -185,6 +188,8 @@ const CheckoutPage = () => {
             vendorCity = vendorProfileData.city || ""
             vendorState = vendorProfileData.state || ""
 
+            console.log("Vendor profile data:", vendorProfileData)
+
             // Get vendor name
             const { data: vendorData } = await supabase.from("vendors").select("store_name").eq("id", vendorId).single()
 
@@ -196,7 +201,7 @@ const CheckoutPage = () => {
           }
         }
 
-        // Modified query to get cart items with menu items
+        // Fetch cart items
         const query = supabase
           .from("cart_items")
           .select(`
@@ -225,11 +230,9 @@ const CheckoutPage = () => {
           return
         }
 
-        console.log("Raw cart data:", data)
-
         // Transform the data and filter by vendor if needed
         let transformedItems = data
-          .filter((item) => item.menu_items) // Filter out items with missing menu_items
+          .filter((item) => item.menu_items)
           .map((item: any) => ({
             id: item.id,
             menu_item_id: item.menu_item_id,
@@ -245,18 +248,15 @@ const CheckoutPage = () => {
           transformedItems = transformedItems.filter((item) => item.vendor_id === vendorId)
         }
 
-        console.log("Transformed cart items:", transformedItems)
-
         setCartItems(transformedItems)
 
-        // Set vendor info if we have items
+        // Set vendor info
         if (transformedItems.length > 0) {
           const firstItem = transformedItems[0]
           const firstVendorId = firstItem.vendor_id
 
           // If we don't already have vendor info from the direct query above
           if (!vendorName && firstVendorId) {
-            // Get vendor profile information for this vendor
             const { data: vendorProfileData } = await supabase
               .from("vendor_profiles")
               .select("address, city, state")
@@ -279,7 +279,7 @@ const CheckoutPage = () => {
             state: vendorState,
           })
 
-          console.log("Vendor info set:", {
+          console.log("Final vendor info:", {
             id: firstVendorId,
             name: vendorName || firstItem.vendor_name,
             address: vendorAddress,
@@ -292,19 +292,16 @@ const CheckoutPage = () => {
         const itemSubtotal = transformedItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
         setSubtotal(itemSubtotal)
 
-        // Calculate service fee (base fee of 300 + 135 per additional item)
         const totalItems = transformedItems.reduce((sum, item) => sum + item.quantity, 0)
         const calculatedServiceFee = calculateServiceFee(totalItems)
         setServiceFee(calculatedServiceFee)
 
-        // Calculate VAT (7.5% in Nigeria)
         const calculatedVat = Math.round(itemSubtotal * 0.075)
         setVat(calculatedVat)
 
-        // Initial total calculation (will be updated when delivery fee is calculated)
         const initialTotal = itemSubtotal + calculatedServiceFee + calculatedVat
         setTotal(initialTotal)
-        setFinalTotal(initialTotal) // Initialize final total with the full amount
+        setFinalTotal(initialTotal)
       } catch (error) {
         console.error("Error in fetchCartItems:", error)
         setPaymentError("An unexpected error occurred while loading your cart.")
@@ -321,12 +318,27 @@ const CheckoutPage = () => {
   // Calculate delivery fee when address changes or vendor info is available
   useEffect(() => {
     const performDeliveryCalculation = async () => {
+      // Check if we have all required data
       if (!vendorInfo || !deliveryAddress.address || !deliveryAddress.city || !deliveryAddress.state) {
+        console.log("Missing required data for delivery calculation:", {
+          hasVendorInfo: !!vendorInfo,
+          hasAddress: !!deliveryAddress.address,
+          hasCity: !!deliveryAddress.city,
+          hasState: !!deliveryAddress.state,
+        })
+        return
+      }
+
+      // Check if vendor has address
+      if (!vendorInfo.address || !vendorInfo.city || !vendorInfo.state) {
+        console.log("Vendor missing address information:", vendorInfo)
+        setPaymentError("Vendor address information is incomplete. Please contact support.")
         return
       }
 
       try {
         setIsCalculatingDelivery(true)
+        setPaymentError("") // Clear any previous errors
 
         // Prepare addresses for geocoding
         const vendorAddress: Address = {
@@ -342,6 +354,10 @@ const CheckoutPage = () => {
           zipCode: deliveryAddress.zipCode,
         }
 
+        console.log("Starting delivery calculation with addresses:")
+        console.log("Vendor:", vendorAddress)
+        console.log("Customer:", customerAddress)
+
         // Validate addresses
         if (!validateAddress(vendorAddress)) {
           throw new Error("Vendor address is incomplete")
@@ -351,11 +367,7 @@ const CheckoutPage = () => {
           throw new Error("Customer address is incomplete")
         }
 
-        console.log("Starting delivery calculation...")
-        console.log("Vendor address:", formatAddressForDisplay(vendorAddress))
-        console.log("Customer address:", formatAddressForDisplay(customerAddress))
-
-        // Calculate delivery details using the new accurate service
+        // Calculate delivery details using the enhanced geocoding service
         const deliveryDetails = await calculateDeliveryDetails(vendorAddress, customerAddress)
 
         console.log("Delivery calculation completed:", deliveryDetails)
@@ -405,7 +417,6 @@ const CheckoutPage = () => {
   // Calculate discount when loyalty points are toggled
   useEffect(() => {
     if (usePoints && customerProfile && customerProfile.loyalty_points >= 10) {
-      // Calculate 50% discount, capped at ₦2,000
       const discount = Math.min(total * 0.5, 2000)
       setPointsDiscount(discount)
       setFinalTotal(total - discount)
@@ -418,12 +429,10 @@ const CheckoutPage = () => {
   const validateForm = () => {
     const errors: Record<string, string> = {}
 
-    // Validate delivery address
     if (!deliveryAddress.address.trim()) errors.address = "Delivery address is required"
     if (!deliveryAddress.city.trim()) errors.city = "City is required"
     if (!deliveryAddress.state.trim()) errors.state = "State is required"
 
-    // Validate contact info
     if (!contactInfo.fullName.trim()) errors.fullName = "Full name is required"
     if (!contactInfo.phone.trim()) errors.phone = "Phone number is required"
     if (!contactInfo.email.trim()) errors.email = "Email is required"
@@ -467,28 +476,20 @@ const CheckoutPage = () => {
           .eq("id", session.user.id)
       }
 
-      // Determine vendor ID - use the one from URL or from the first cart item
+      // Determine vendor ID
       let resolvedVendorId = null
 
-      // First try to get vendor ID from URL parameter
       if (typeof vendorId === "string" && vendorId !== "null" && vendorId.trim() !== "") {
         resolvedVendorId = vendorId
-        console.log("Using vendor ID from URL:", resolvedVendorId)
-      }
-      // If not available, try to get from cart items
-      else if (cartItems.length > 0) {
-        // Try to find any cart item with a valid vendor_id
+      } else if (cartItems.length > 0) {
         const itemWithVendor = cartItems.find(
           (item) => item.vendor_id && item.vendor_id !== "null" && item.vendor_id.trim() !== "",
         )
-
         if (itemWithVendor) {
           resolvedVendorId = itemWithVendor.vendor_id
-          console.log("Using vendor ID from cart item:", resolvedVendorId)
         }
       }
 
-      // Validate that we have a valid UUID for vendor_id
       const isValidUUID = (uuid: string | null | undefined): boolean => {
         return Boolean(
           uuid &&
@@ -503,17 +504,10 @@ const CheckoutPage = () => {
         return
       }
 
-      console.log("Using vendor ID:", resolvedVendorId)
-
-      // Determine if loyalty points are being redeemed
       const loyaltyPointsRedeemed = usePoints && customerProfile && customerProfile.loyalty_points >= 10 ? 10 : 0
       const discountAmount = pointsDiscount
 
-      console.log("Loyalty points redeemed:", loyaltyPointsRedeemed)
-      console.log("Discount amount:", discountAmount)
-
-      // Calculate estimated delivery time
-      const estimatedDeliveryTimeMinutes = estimatedTime || 30 // Default to 30 minutes if not calculated
+      const estimatedDeliveryTimeMinutes = estimatedTime || 30
       const now = new Date()
       const estimatedDeliveryTime = new Date(now.getTime() + estimatedDeliveryTimeMinutes * 60000)
 
@@ -523,11 +517,11 @@ const CheckoutPage = () => {
         .insert({
           customer_id: session.user.id,
           status: "pending",
-          total_amount: finalTotal, // Use the final total with discount applied
-          original_amount: total, // Store the original amount before discount
-          discount_amount: discountAmount, // Store the discount amount
-          delivery_fee: deliveryFee, // Store the calculated delivery fee
-          distance_km: distance || 0, // Store the calculated distance
+          total_amount: finalTotal,
+          original_amount: total,
+          discount_amount: discountAmount,
+          delivery_fee: deliveryFee,
+          distance_km: distance || 0,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           delivery_address: deliveryAddress.address,
@@ -542,7 +536,7 @@ const CheckoutPage = () => {
           actual_delivery_time: null,
           contact_number: contactInfo.phone,
           special_instructions: deliveryAddress.instructions || null,
-          loyalty_points_redeemed: loyaltyPointsRedeemed, // Store the number of points redeemed
+          loyalty_points_redeemed: loyaltyPointsRedeemed,
         })
         .select()
         .single()
@@ -569,29 +563,16 @@ const CheckoutPage = () => {
 
       if (itemsError) {
         console.error("Error creating order items:", itemsError)
-
-        // If order items creation fails, delete the order to avoid orphaned orders
         await supabase.from("orders").delete().eq("id", orderData.id)
-
         setPaymentError("Failed to create order items. Please try again.")
         setIsProcessing(false)
         return
       }
 
-      // If loyalty points were redeemed, update the customer's points balance
+      // Update loyalty points if redeemed
       if (loyaltyPointsRedeemed > 0 && customerProfile) {
         const newPointsBalance = customerProfile.loyalty_points - loyaltyPointsRedeemed
-
-        const { error: pointsError } = await supabase
-          .from("customers")
-          .update({ loyalty_points: newPointsBalance })
-          .eq("id", session.user.id)
-
-        if (pointsError) {
-          console.error("Error updating loyalty points:", pointsError)
-          // Continue with the order process even if points update fails
-          // We'll handle this edge case later
-        }
+        await supabase.from("customers").update({ loyalty_points: newPointsBalance }).eq("id", session.user.id)
       }
 
       // Initialize payment with PayStack
@@ -602,7 +583,7 @@ const CheckoutPage = () => {
         },
         body: JSON.stringify({
           orderId: orderData.id,
-          amount: finalTotal, // Use the final total with discount applied
+          amount: finalTotal,
           email: contactInfo.email,
           metadata: {
             order_id: orderData.id,
@@ -619,18 +600,15 @@ const CheckoutPage = () => {
       const paymentData = await response.json()
 
       if (!paymentData.success) {
-        // If payment initialization fails, delete the order and order items
         await supabase.from("order_items").delete().eq("order_id", orderData.id)
         await supabase.from("orders").delete().eq("id", orderData.id)
-
         setPaymentError(paymentData.error || "Failed to initialize payment")
         setIsProcessing(false)
         return
       }
 
-      // Clear cart items for this vendor after successful order creation
+      // Clear cart items
       if (resolvedVendorId) {
-        // Since vendor_id in cart_items is null, we need to delete based on menu_item_id
         const menuItemIds = cartItems.map((item) => item.menu_item_id)
         await supabase.from("cart_items").delete().eq("customer_id", session.user.id).in("menu_item_id", menuItemIds)
       }
@@ -644,12 +622,9 @@ const CheckoutPage = () => {
     }
   }
 
-  // Function to recalculate delivery details when address changes
   const handleAddressChange = (field: keyof DeliveryAddress, value: string) => {
     setDeliveryAddress({ ...deliveryAddress, [field]: value })
-
-    // Reset coordinates to force recalculation
-    setCustomerCoordinates(null)
+    setCustomerCoordinates(null) // Reset to force recalculation
   }
 
   if (isLoading) {
