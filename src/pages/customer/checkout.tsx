@@ -5,8 +5,7 @@ import { useRouter } from "next/router"
 import Link from "next/link"
 import { supabase } from "@/utils/supabase"
 import CustomerLayout from "../../components/CustomerLayout"
-import { Loader2, MapPin, CreditCard, AlertCircle, ArrowLeft, Clock } from 'lucide-react'
-import CartSummary from "@/components/customer/CartSummary"
+import { Loader2, MapPin, CreditCard, AlertCircle, ArrowLeft, Clock, Gift, Info, ShoppingCart } from "lucide-react"
 
 interface CartItem {
   id: string
@@ -32,6 +31,12 @@ interface ContactInfo {
   email: string
 }
 
+interface CustomerProfile {
+  id: string
+  name: string
+  loyalty_points: number
+}
+
 const CheckoutPage = () => {
   const router = useRouter()
   const { vendor: vendorId } = router.query
@@ -46,6 +51,12 @@ const CheckoutPage = () => {
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentError, setPaymentError] = useState("")
   const [paymentSuccess, setPaymentSuccess] = useState(false)
+
+  // Loyalty points states
+  const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null)
+  const [usePoints, setUsePoints] = useState(false)
+  const [pointsDiscount, setPointsDiscount] = useState(0)
+  const [finalTotal, setFinalTotal] = useState(0)
 
   // Form states
   const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddress>({
@@ -81,10 +92,10 @@ const CheckoutPage = () => {
           return
         }
 
-        // Fetch user profile to pre-fill contact info
+        // Fetch user profile to pre-fill contact info and get loyalty points
         const { data: customerData } = await supabase
           .from("customers")
-          .select("name, email, phone_number, address, city, state, zip_code")
+          .select("id, name, email, phone_number, address, city, state, zip_code, loyalty_points")
           .eq("id", session.user.id)
           .single()
 
@@ -104,10 +115,19 @@ const CheckoutPage = () => {
               instructions: "",
             })
           }
+
+          // Set customer profile with loyalty points
+          setCustomerProfile({
+            id: customerData.id,
+            name: customerData.name || "",
+            loyalty_points: customerData.loyalty_points || 0,
+          })
+
+          console.log("Customer loyalty points:", customerData.loyalty_points)
         }
 
         // Modified query to get cart items with menu items and vendor info
-        let query = supabase
+        const query = supabase
           .from("cart_items")
           .select(`
             id,
@@ -156,7 +176,7 @@ const CheckoutPage = () => {
 
         // Filter by vendor if vendorId is provided
         if (vendorId && typeof vendorId === "string" && vendorId !== "null") {
-          transformedItems = transformedItems.filter(item => item.vendor_id === vendorId)
+          transformedItems = transformedItems.filter((item) => item.vendor_id === vendorId)
         }
 
         console.log("Transformed cart items:", transformedItems)
@@ -177,7 +197,9 @@ const CheckoutPage = () => {
         setVat(calculatedVat)
 
         // Calculate total
-        setTotal(itemSubtotal + deliveryFee + calculatedServiceFee + calculatedVat)
+        const orderTotal = itemSubtotal + deliveryFee + calculatedServiceFee + calculatedVat
+        setTotal(orderTotal)
+        setFinalTotal(orderTotal) // Initialize final total with the full amount
       } catch (error) {
         console.error("Error in fetchCartItems:", error)
         setPaymentError("An unexpected error occurred while loading your cart.")
@@ -190,6 +212,19 @@ const CheckoutPage = () => {
       fetchCartItems()
     }
   }, [router.isReady, router, vendorId, deliveryFee])
+
+  // Calculate discount when loyalty points are toggled
+  useEffect(() => {
+    if (usePoints && customerProfile && customerProfile.loyalty_points >= 10) {
+      // Calculate 50% discount, capped at ₦2,000
+      const discount = Math.min(total * 0.5, 2000)
+      setPointsDiscount(discount)
+      setFinalTotal(total - discount)
+    } else {
+      setPointsDiscount(0)
+      setFinalTotal(total)
+    }
+  }, [usePoints, total, customerProfile])
 
   const validateForm = () => {
     const errors: Record<string, string> = {}
@@ -214,11 +249,11 @@ const CheckoutPage = () => {
       window.scrollTo({ top: 0, behavior: "smooth" })
       return
     }
-  
+
     try {
       setIsProcessing(true)
       setPaymentError("")
-  
+
       const {
         data: { session },
       } = await supabase.auth.getSession()
@@ -244,41 +279,49 @@ const CheckoutPage = () => {
       }
 
       // Determine vendor ID - use the one from URL or from the first cart item
-      let resolvedVendorId = null;
-    
+      let resolvedVendorId = null
+
       // First try to get vendor ID from URL parameter
       if (typeof vendorId === "string" && vendorId !== "null" && vendorId.trim() !== "") {
-        resolvedVendorId = vendorId;
-        console.log("Using vendor ID from URL:", resolvedVendorId);
-      } 
+        resolvedVendorId = vendorId
+        console.log("Using vendor ID from URL:", resolvedVendorId)
+      }
       // If not available, try to get from cart items
       else if (cartItems.length > 0) {
         // Try to find any cart item with a valid vendor_id
-        const itemWithVendor = cartItems.find(item => 
-          item.vendor_id && 
-          item.vendor_id !== "null" && 
-          item.vendor_id.trim() !== ""
-        );
-        
+        const itemWithVendor = cartItems.find(
+          (item) => item.vendor_id && item.vendor_id !== "null" && item.vendor_id.trim() !== "",
+        )
+
         if (itemWithVendor) {
-          resolvedVendorId = itemWithVendor.vendor_id;
-          console.log("Using vendor ID from cart item:", resolvedVendorId);
+          resolvedVendorId = itemWithVendor.vendor_id
+          console.log("Using vendor ID from cart item:", resolvedVendorId)
         }
       }
 
       // Validate that we have a valid UUID for vendor_id
       const isValidUUID = (uuid: string | null | undefined): boolean => {
-        return Boolean(uuid && typeof uuid === 'string' && 
-               /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid));
-      };
-
-      if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
-        setPaymentError("Unable to determine vendor. Please go back and select a vendor.");
-        setIsProcessing(false);
-        return;
+        return Boolean(
+          uuid &&
+            typeof uuid === "string" &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid),
+        )
       }
 
-      console.log("Using vendor ID:", resolvedVendorId);
+      if (!resolvedVendorId || !isValidUUID(resolvedVendorId)) {
+        setPaymentError("Unable to determine vendor. Please go back and select a vendor.")
+        setIsProcessing(false)
+        return
+      }
+
+      console.log("Using vendor ID:", resolvedVendorId)
+
+      // Determine if loyalty points are being redeemed
+      const loyaltyPointsRedeemed = usePoints && customerProfile && customerProfile.loyalty_points >= 10 ? 10 : 0
+      const discountAmount = pointsDiscount
+
+      console.log("Loyalty points redeemed:", loyaltyPointsRedeemed)
+      console.log("Discount amount:", discountAmount)
 
       // Create order in database
       const { data: orderData, error: orderError } = await supabase
@@ -286,7 +329,9 @@ const CheckoutPage = () => {
         .insert({
           customer_id: session.user.id,
           status: "pending",
-          total_amount: total,
+          total_amount: finalTotal, // Use the final total with discount applied
+          original_amount: total, // Store the original amount before discount
+          discount_amount: discountAmount, // Store the discount amount
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           delivery_address: deliveryAddress.address,
@@ -298,6 +343,7 @@ const CheckoutPage = () => {
           actual_delivery_time: null,
           contact_number: contactInfo.phone,
           special_instructions: deliveryAddress.instructions || null,
+          loyalty_points_redeemed: loyaltyPointsRedeemed, // Store the number of points redeemed
         })
         .select()
         .single()
@@ -333,6 +379,22 @@ const CheckoutPage = () => {
         return
       }
 
+      // If loyalty points were redeemed, update the customer's points balance
+      if (loyaltyPointsRedeemed > 0 && customerProfile) {
+        const newPointsBalance = customerProfile.loyalty_points - loyaltyPointsRedeemed
+
+        const { error: pointsError } = await supabase
+          .from("customers")
+          .update({ loyalty_points: newPointsBalance })
+          .eq("id", session.user.id)
+
+        if (pointsError) {
+          console.error("Error updating loyalty points:", pointsError)
+          // Continue with the order process even if points update fails
+          // We'll handle this edge case later
+        }
+      }
+
       // Initialize payment with PayStack
       const response = await fetch("/api/payments/initialize-order", {
         method: "POST",
@@ -341,12 +403,14 @@ const CheckoutPage = () => {
         },
         body: JSON.stringify({
           orderId: orderData.id,
-          amount: total,
+          amount: finalTotal, // Use the final total with discount applied
           email: contactInfo.email,
           metadata: {
             order_id: orderData.id,
             customer_id: session.user.id,
             delivery_address: deliveryAddress.address,
+            loyalty_points_redeemed: loyaltyPointsRedeemed,
+            discount_amount: discountAmount,
           },
         }),
       })
@@ -366,12 +430,8 @@ const CheckoutPage = () => {
       // Clear cart items for this vendor after successful order creation
       if (resolvedVendorId) {
         // Since vendor_id in cart_items is null, we need to delete based on menu_item_id
-        const menuItemIds = cartItems.map(item => item.menu_item_id)
-        await supabase
-          .from("cart_items")
-          .delete()
-          .eq("customer_id", session.user.id)
-          .in("menu_item_id", menuItemIds)
+        const menuItemIds = cartItems.map((item) => item.menu_item_id)
+        await supabase.from("cart_items").delete().eq("customer_id", session.user.id).in("menu_item_id", menuItemIds)
       }
 
       // Redirect to PayStack payment page
@@ -404,7 +464,7 @@ const CheckoutPage = () => {
             <div className="bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] text-[#1d2c36] rounded-full p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">
               <AlertCircle className="h-8 w-8" />
             </div>
-            <h2 className="text-2xl font-bold mb-4 text-[#1d2c36]">Your cart is empty</h2>
+            <h2 className="text-2xl font-bold mb-4 text-[#1d2c36]">Checkout</h2>
             <p className="text-[#1d2c36] mb-6">
               You need to add some items to your cart before proceeding to checkout.
             </p>
@@ -441,6 +501,56 @@ const CheckoutPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Forms */}
           <div className="lg:col-span-2 space-y-8">
+            {/* Loyalty Points Redemption */}
+            {customerProfile && customerProfile.loyalty_points >= 10 && (
+              <div className="bg-gradient-to-r from-[#8f8578] to-[#b9c6c8] rounded-lg shadow-md border border-[#b9c6c8] p-6">
+                <h2 className="text-xl font-bold mb-4 flex items-center text-[#1d2c36]">
+                  <Gift className="h-5 w-5 mr-2 text-[#1d2c36]" />
+                  Loyalty Points
+                </h2>
+
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-[#1d2c36] mb-1">
+                      You have <span className="font-bold">{customerProfile.loyalty_points}</span> loyalty points
+                    </p>
+                    <p className="text-sm text-[#1d2c36] opacity-80">
+                      Redeem 10 points for 50% off your order (up to ₦2,000)
+                    </p>
+                  </div>
+                  <div className="bg-[#1d2c36] px-4 py-2 rounded-lg">
+                    <p className="text-[#8f8578] text-sm">Available</p>
+                    <p className="text-[#b9c6c8] font-bold text-xl">{customerProfile.loyalty_points} pts</p>
+                  </div>
+                </div>
+
+                <label className="flex items-center p-4 border border-[#1d2c36] rounded-lg bg-[#1d2c36] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={usePoints}
+                    onChange={(e) => setUsePoints(e.target.checked)}
+                    className="h-5 w-5 text-[#b9c6c8] focus:ring-[#b9c6c8] border-[#b9c6c8] rounded"
+                    disabled={customerProfile.loyalty_points < 10}
+                  />
+                  <div className="ml-3">
+                    <span className="font-medium text-[#8f8578]">Use 10 points to get 50% off this order</span>
+                    {usePoints && (
+                      <p className="text-sm text-[#b9c6c8] mt-1">You'll save ₦{pointsDiscount.toLocaleString()}</p>
+                    )}
+                  </div>
+                </label>
+
+                {usePoints && (
+                  <div className="mt-4 bg-[#1d2c36] bg-opacity-20 p-4 rounded-lg flex items-start">
+                    <Info className="h-5 w-5 text-[#1d2c36] mr-2 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-[#1d2c36]">
+                      10 points will be deducted from your loyalty balance when you complete this order.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Delivery Address */}
             <div className="bg-gradient-to-r from-[#8f8578] to-[#b9c6c8] rounded-lg shadow-md border border-[#b9c6c8] p-6">
               <h2 className="text-xl font-bold mb-4 flex items-center text-[#1d2c36]">
@@ -450,9 +560,7 @@ const CheckoutPage = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-[#1d2c36] mb-1">
-                    Street Address*
-                  </label>
+                  <label className="block text-sm font-medium text-[#1d2c36] mb-1">Street Address*</label>
                   <input
                     type="text"
                     value={deliveryAddress.address}
@@ -462,9 +570,7 @@ const CheckoutPage = () => {
                     }`}
                     placeholder="123 Main Street"
                   />
-                  {formErrors.address && (
-                    <p className="mt-1 text-sm text-red-500">{formErrors.address}</p>
-                  )}
+                  {formErrors.address && <p className="mt-1 text-sm text-red-500">{formErrors.address}</p>}
                 </div>
 
                 <div>
@@ -478,9 +584,7 @@ const CheckoutPage = () => {
                     }`}
                     placeholder="Lagos"
                   />
-                  {formErrors.city && (
-                    <p className="mt-1 text-sm text-red-500">{formErrors.city}</p>
-                  )}
+                  {formErrors.city && <p className="mt-1 text-sm text-red-500">{formErrors.city}</p>}
                 </div>
 
                 <div>
@@ -494,9 +598,7 @@ const CheckoutPage = () => {
                     }`}
                     placeholder="Lagos State"
                   />
-                  {formErrors.state && (
-                    <p className="mt-1 text-sm text-red-500">{formErrors.state}</p>
-                  )}
+                  {formErrors.state && <p className="mt-1 text-sm text-red-500">{formErrors.state}</p>}
                 </div>
 
                 <div>
@@ -541,9 +643,7 @@ const CheckoutPage = () => {
                     }`}
                     placeholder="John Doe"
                   />
-                  {formErrors.fullName && (
-                    <p className="mt-1 text-sm text-red-500">{formErrors.fullName}</p>
-                  )}
+                  {formErrors.fullName && <p className="mt-1 text-sm text-red-500">{formErrors.fullName}</p>}
                 </div>
 
                 <div>
@@ -557,9 +657,7 @@ const CheckoutPage = () => {
                     }`}
                     placeholder="+234 800 000 0000"
                   />
-                  {formErrors.phone && (
-                    <p className="mt-1 text-sm text-red-500">{formErrors.phone}</p>
-                  )}
+                  {formErrors.phone && <p className="mt-1 text-sm text-red-500">{formErrors.phone}</p>}
                 </div>
 
                 <div>
@@ -573,9 +671,7 @@ const CheckoutPage = () => {
                     }`}
                     placeholder="john@example.com"
                   />
-                  {formErrors.email && (
-                    <p className="mt-1 text-sm text-red-500">{formErrors.email}</p>
-                  )}
+                  {formErrors.email && <p className="mt-1 text-sm text-red-500">{formErrors.email}</p>}
                 </div>
 
                 <div className="md:col-span-2">
@@ -584,11 +680,9 @@ const CheckoutPage = () => {
                       type="checkbox"
                       checked={saveInfo}
                       onChange={(e) => setSaveInfo(e.target.checked)}
-                      className="h-4 w-4 text-[#b9c6c8] focus:ring-[#b9c6c8] border-[#b9c6c8] rounded"
+                      className="h-4 w-4 text-[#b9c6c8] focus:ring-[#b9c6c8] border-[#b9c6c8]"
                     />
-                    <span className="ml-2 text-sm text-[#1d2c36]">
-                      Save this information for future orders
-                    </span>
+                    <span className="ml-2 text-sm text-[#1d2c36]">Save this information for future orders</span>
                   </label>
                 </div>
               </div>
@@ -620,8 +714,8 @@ const CheckoutPage = () => {
 
                 <div className="p-4 bg-gradient-to-r from-[#b9c6c8]/20 to-[#8f8578]/20 rounded-lg border border-[#b9c6c8] text-sm text-[#1d2c36]">
                   <p>
-                    You'll be redirected to PayStack's secure payment page to complete your payment.
-                    Your payment information is encrypted and secure!
+                    You'll be redirected to PayStack's secure payment page to complete your payment. Your payment
+                    information is encrypted and secure!
                   </p>
                 </div>
               </div>
@@ -633,51 +727,92 @@ const CheckoutPage = () => {
                 <Clock className="h-5 w-5 mr-2 text-[#1d2c36]" />
                 Estimated Delivery
               </h2>
-              <p className="text-[#1d2c36]">
-                Your order will be delivered within minutes after payment confirmation.
-              </p>
+              <p className="text-[#1d2c36]">Your order will be delivered within minutes after payment confirmation.</p>
             </div>
           </div>
 
           {/* Right Column - Order Summary */}
           <div className="lg:col-span-1">
             <div className="sticky top-24">
-              <CartSummary
-                subtotal={subtotal}
-                serviceFee={serviceFee}
-                deliveryFee={deliveryFee}
-                itemCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
-                vendorId={vendorId as string || null}
-              />
+              <div className="bg-[#8f8578] rounded-lg shadow-md border border-[#1d2c36] p-6">
+                <h2 className="text-xl font-bold mb-4 flex items-center text-[#1d2c36]">
+                  <ShoppingCart className="h-5 w-5 mr-2 text-[#1d2c36]" />
+                  Order Summary
+                </h2>
 
-              <button
-                onClick={handlePlaceOrder}
-                disabled={isProcessing}
-                className={`w-full mt-4 bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] text-[#1d2c36] py-3 rounded-lg font-medium hover:from-[#a8b5b8] hover:to-[#97a4a7] transition-all duration-300 flex items-center justify-center ${
-                  isProcessing ? "opacity-70 cursor-not-allowed" : ""
-                }`}
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                    Processing...
-                  </>
-                ) : (
-                  "Place Order & Pay"
-                )}
-              </button>
+                <div className="space-y-3 mb-6">
+                  <div className="flex justify-between">
+                    <span className="text-[#1d2c36]">
+                      Subtotal ({cartItems.reduce((sum, item) => sum + item.quantity, 0)} items)
+                    </span>
+                    <span className="font-medium text-[#1d2c36]">₦{subtotal.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#1d2c36]">Delivery Fee</span>
+                    <span className="font-medium text-[#1d2c36]">₦{deliveryFee.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#1d2c36]">Service Fee</span>
+                    <span className="font-medium text-[#1d2c36]">₦{serviceFee.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#1d2c36]">VAT (7.5%)</span>
+                    <span className="font-medium text-[#1d2c36]">₦{vat.toLocaleString()}</span>
+                  </div>
 
-              <p className="mt-4 text-sm text-[#1d2c36] text-center">
-                By placing your order, you agree to our{" "}
-                <Link href="/terms" className="text-[#b9c6c8] hover:underline">
-                  Terms of Service
-                </Link>{" "}
-                and{" "}
-                <Link href="/privacy" className="text-[#b9c6c8] hover:underline">
-                  Privacy Policy
-                </Link>
-                .
-              </p>
+                  {usePoints && pointsDiscount > 0 && (
+                    <div className="flex justify-between text-[#b9c6c8] bg-[#1d2c36] p-2 rounded">
+                      <span className="flex items-center">
+                        <Gift className="h-4 w-4 mr-1" />
+                        Loyalty Discount (10 pts)
+                      </span>
+                      <span className="font-medium">-₦{pointsDiscount.toLocaleString()}</span>
+                    </div>
+                  )}
+
+                  <div className="border-t border-[#1d2c36] pt-3 mt-3">
+                    <div className="flex justify-between font-bold text-[#1d2c36]">
+                      <span>Total</span>
+                      <span>₦{finalTotal.toLocaleString()}</span>
+                    </div>
+
+                    {usePoints && pointsDiscount > 0 && (
+                      <div className="text-right text-sm mt-1 text-[#1d2c36]">
+                        You saved ₦{pointsDiscount.toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handlePlaceOrder}
+                  disabled={isProcessing}
+                  className={`w-full bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] text-[#1d2c36] py-3 rounded-lg font-medium hover:from-[#a8b5b8] hover:to-[#97a4a7] transition-all duration-300 flex items-center justify-center ${
+                    isProcessing ? "opacity-70 cursor-not-allowed" : ""
+                  }`}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                      Processing...
+                    </>
+                  ) : (
+                    "Place Order & Pay"
+                  )}
+                </button>
+
+                <p className="mt-4 text-sm text-[#1d2c36] text-center">
+                  By placing your order, you agree to our{" "}
+                  <Link href="/terms" className="text-[#b9c6c8] hover:underline">
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" className="text-[#b9c6c8] hover:underline">
+                    Privacy Policy
+                  </Link>
+                  .
+                </p>
+              </div>
             </div>
           </div>
         </div>
