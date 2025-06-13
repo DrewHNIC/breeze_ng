@@ -5,7 +5,29 @@ import { useRouter } from "next/router"
 import Link from "next/link"
 import { supabase } from "@/utils/supabase"
 import CustomerLayout from "../../components/CustomerLayout"
-import { Loader2, MapPin, CreditCard, AlertCircle, ArrowLeft, Clock, Gift, Info, ShoppingCart } from "lucide-react"
+import {
+  Loader2,
+  MapPin,
+  CreditCard,
+  AlertCircle,
+  ArrowLeft,
+  Clock,
+  Gift,
+  Info,
+  ShoppingCart,
+  Truck,
+  LocateFixed,
+} from "lucide-react"
+import {
+  calculateDistance,
+  calculateDeliveryFee,
+  calculateEstimatedDeliveryTime,
+  formatDeliveryTime,
+  geocodeAddress,
+  getMockVendorCoordinates,
+  type Address,
+  type Coordinates,
+} from "@/utils/delivery-utils"
 
 interface CartItem {
   id: string
@@ -37,6 +59,13 @@ interface CustomerProfile {
   loyalty_points: number
 }
 
+interface VendorInfo {
+  id: string
+  name: string
+  address: string
+  coordinates?: Coordinates
+}
+
 const CheckoutPage = () => {
   const router = useRouter()
   const { vendor: vendorId } = router.query
@@ -44,13 +73,21 @@ const CheckoutPage = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [subtotal, setSubtotal] = useState(0)
-  const [deliveryFee, setDeliveryFee] = useState(500) // Default delivery fee
+  const [deliveryFee, setDeliveryFee] = useState(0) // Start with 0, will be calculated
   const [serviceFee, setServiceFee] = useState(0)
   const [vat, setVat] = useState(0)
   const [total, setTotal] = useState(0)
   const [isProcessing, setIsProcessing] = useState(false)
   const [paymentError, setPaymentError] = useState("")
   const [paymentSuccess, setPaymentSuccess] = useState(false)
+
+  // Delivery calculation states
+  const [distance, setDistance] = useState<number | null>(null)
+  const [estimatedTime, setEstimatedTime] = useState<number | null>(null)
+  const [isCalculatingDelivery, setIsCalculatingDelivery] = useState(false)
+  const [vendorInfo, setVendorInfo] = useState<VendorInfo | null>(null)
+  const [customerCoordinates, setCustomerCoordinates] = useState<Coordinates | null>(null)
+  const [vendorCoordinates, setVendorCoordinates] = useState<Coordinates | null>(null)
 
   // Loyalty points states
   const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null)
@@ -140,7 +177,7 @@ const CheckoutPage = () => {
               price, 
               image_url, 
               vendor_id,
-              vendors(id, store_name)
+              vendors(id, store_name, address, city, state)
             )
           `)
           .eq("customer_id", session.user.id)
@@ -172,6 +209,9 @@ const CheckoutPage = () => {
             name: item.menu_items.name,
             vendor_id: item.menu_items.vendor_id || "",
             vendor_name: item.menu_items.vendors?.store_name || "Unknown Vendor",
+            vendor_address: item.menu_items.vendors?.address || "",
+            vendor_city: item.menu_items.vendors?.city || "",
+            vendor_state: item.menu_items.vendors?.state || "",
           }))
 
         // Filter by vendor if vendorId is provided
@@ -182,6 +222,16 @@ const CheckoutPage = () => {
         console.log("Transformed cart items:", transformedItems)
 
         setCartItems(transformedItems)
+
+        // Set vendor info if we have items
+        if (transformedItems.length > 0) {
+          const firstItem = transformedItems[0]
+          setVendorInfo({
+            id: firstItem.vendor_id,
+            name: firstItem.vendor_name,
+            address: `${firstItem.vendor_address}, ${firstItem.vendor_city}, ${firstItem.vendor_state}`,
+          })
+        }
 
         // Calculate totals
         const itemSubtotal = transformedItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
@@ -196,10 +246,10 @@ const CheckoutPage = () => {
         const calculatedVat = Math.round(itemSubtotal * 0.075)
         setVat(calculatedVat)
 
-        // Calculate total
-        const orderTotal = itemSubtotal + deliveryFee + calculatedServiceFee + calculatedVat
-        setTotal(orderTotal)
-        setFinalTotal(orderTotal) // Initialize final total with the full amount
+        // Initial total calculation (will be updated when delivery fee is calculated)
+        const initialTotal = itemSubtotal + calculatedServiceFee + calculatedVat
+        setTotal(initialTotal)
+        setFinalTotal(initialTotal) // Initialize final total with the full amount
       } catch (error) {
         console.error("Error in fetchCartItems:", error)
         setPaymentError("An unexpected error occurred while loading your cart.")
@@ -211,7 +261,90 @@ const CheckoutPage = () => {
     if (router.isReady) {
       fetchCartItems()
     }
-  }, [router.isReady, router, vendorId, deliveryFee])
+  }, [router.isReady, router, vendorId])
+
+  // Calculate delivery fee when address changes or vendor info is available
+  useEffect(() => {
+    const calculateDeliveryDetails = async () => {
+      if (!vendorInfo || !deliveryAddress.address || !deliveryAddress.city || !deliveryAddress.state) {
+        return
+      }
+
+      try {
+        setIsCalculatingDelivery(true)
+
+        // Get customer coordinates
+        const customerAddress: Address = {
+          address: deliveryAddress.address,
+          city: deliveryAddress.city,
+          state: deliveryAddress.state,
+          zipCode: deliveryAddress.zipCode,
+        }
+
+        // In a real implementation, we would use a geocoding API
+        // For now, we'll use our mock function
+        let customerCoords: Coordinates
+        let vendorCoords: Coordinates
+
+        if (!customerCoordinates) {
+          customerCoords = await geocodeAddress(customerAddress)
+          setCustomerCoordinates(customerCoords)
+        } else {
+          customerCoords = customerCoordinates
+        }
+
+        if (!vendorCoordinates) {
+          // In a real implementation, we would fetch the vendor's coordinates from the database
+          // For now, we'll use our mock function
+          vendorCoords = getMockVendorCoordinates(vendorInfo.id)
+          setVendorCoordinates(vendorCoords)
+        } else {
+          vendorCoords = vendorCoordinates
+        }
+
+        // Calculate distance
+        const calculatedDistance = calculateDistance(customerCoords, vendorCoords)
+        setDistance(calculatedDistance)
+
+        // Calculate delivery fee
+        const fee = calculateDeliveryFee(calculatedDistance)
+        setDeliveryFee(fee)
+
+        // Calculate estimated delivery time
+        const time = calculateEstimatedDeliveryTime(calculatedDistance)
+        setEstimatedTime(time)
+
+        // Update total with delivery fee
+        const newTotal = subtotal + serviceFee + vat + fee
+        setTotal(newTotal)
+
+        // Update final total with discount if applicable
+        if (usePoints && customerProfile && customerProfile.loyalty_points >= 10) {
+          const discount = Math.min(newTotal * 0.5, 2000)
+          setPointsDiscount(discount)
+          setFinalTotal(newTotal - discount)
+        } else {
+          setFinalTotal(newTotal)
+        }
+      } catch (error) {
+        console.error("Error calculating delivery details:", error)
+      } finally {
+        setIsCalculatingDelivery(false)
+      }
+    }
+
+    calculateDeliveryDetails()
+  }, [
+    vendorInfo,
+    deliveryAddress.address,
+    deliveryAddress.city,
+    deliveryAddress.state,
+    subtotal,
+    serviceFee,
+    vat,
+    customerCoordinates,
+    vendorCoordinates,
+  ])
 
   // Calculate discount when loyalty points are toggled
   useEffect(() => {
@@ -323,6 +456,11 @@ const CheckoutPage = () => {
       console.log("Loyalty points redeemed:", loyaltyPointsRedeemed)
       console.log("Discount amount:", discountAmount)
 
+      // Calculate estimated delivery time
+      const estimatedDeliveryTimeMinutes = estimatedTime || 30 // Default to 30 minutes if not calculated
+      const now = new Date()
+      const estimatedDeliveryTime = new Date(now.getTime() + estimatedDeliveryTimeMinutes * 60000)
+
       // Create order in database
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
@@ -332,12 +470,17 @@ const CheckoutPage = () => {
           total_amount: finalTotal, // Use the final total with discount applied
           original_amount: total, // Store the original amount before discount
           discount_amount: discountAmount, // Store the discount amount
+          delivery_fee: deliveryFee, // Store the calculated delivery fee
+          distance_km: distance || 0, // Store the calculated distance
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
           delivery_address: deliveryAddress.address,
+          delivery_city: deliveryAddress.city,
+          delivery_state: deliveryAddress.state,
+          delivery_zip: deliveryAddress.zipCode,
           vendor_id: resolvedVendorId,
           rider_id: null,
-          estimated_delivery_time: null,
+          estimated_delivery_time: estimatedDeliveryTime.toISOString(),
           payment_method: paymentMethod,
           payment_status: "pending",
           actual_delivery_time: null,
@@ -411,6 +554,8 @@ const CheckoutPage = () => {
             delivery_address: deliveryAddress.address,
             loyalty_points_redeemed: loyaltyPointsRedeemed,
             discount_amount: discountAmount,
+            delivery_fee: deliveryFee,
+            distance_km: distance || 0,
           },
         }),
       })
@@ -441,6 +586,14 @@ const CheckoutPage = () => {
       setPaymentError("An unexpected error occurred. Please try again.")
       setIsProcessing(false)
     }
+  }
+
+  // Function to recalculate delivery details when address changes
+  const handleAddressChange = (field: keyof DeliveryAddress, value: string) => {
+    setDeliveryAddress({ ...deliveryAddress, [field]: value })
+
+    // Reset coordinates to force recalculation
+    setCustomerCoordinates(null)
   }
 
   if (isLoading) {
@@ -564,7 +717,7 @@ const CheckoutPage = () => {
                   <input
                     type="text"
                     value={deliveryAddress.address}
-                    onChange={(e) => setDeliveryAddress({ ...deliveryAddress, address: e.target.value })}
+                    onChange={(e) => handleAddressChange("address", e.target.value)}
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#b9c6c8] focus:border-[#b9c6c8] ${
                       formErrors.address ? "border-red-500" : "border-[#b9c6c8]"
                     }`}
@@ -578,7 +731,7 @@ const CheckoutPage = () => {
                   <input
                     type="text"
                     value={deliveryAddress.city}
-                    onChange={(e) => setDeliveryAddress({ ...deliveryAddress, city: e.target.value })}
+                    onChange={(e) => handleAddressChange("city", e.target.value)}
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#b9c6c8] focus:border-[#b9c6c8] ${
                       formErrors.city ? "border-red-500" : "border-[#b9c6c8]"
                     }`}
@@ -592,7 +745,7 @@ const CheckoutPage = () => {
                   <input
                     type="text"
                     value={deliveryAddress.state}
-                    onChange={(e) => setDeliveryAddress({ ...deliveryAddress, state: e.target.value })}
+                    onChange={(e) => handleAddressChange("state", e.target.value)}
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#b9c6c8] focus:border-[#b9c6c8] ${
                       formErrors.state ? "border-red-500" : "border-[#b9c6c8]"
                     }`}
@@ -606,7 +759,7 @@ const CheckoutPage = () => {
                   <input
                     type="text"
                     value={deliveryAddress.zipCode}
-                    onChange={(e) => setDeliveryAddress({ ...deliveryAddress, zipCode: e.target.value })}
+                    onChange={(e) => handleAddressChange("zipCode", e.target.value)}
                     className="w-full px-4 py-2 border border-[#b9c6c8] rounded-lg focus:ring-2 focus:ring-[#b9c6c8] focus:border-[#b9c6c8]"
                     placeholder="100001"
                   />
@@ -625,6 +778,49 @@ const CheckoutPage = () => {
                   />
                 </div>
               </div>
+
+              {/* Delivery details section */}
+              {vendorInfo && (
+                <div className="mt-6 border-t border-[#1d2c36] pt-4">
+                  <h3 className="font-medium text-[#1d2c36] mb-2 flex items-center">
+                    <Truck className="h-4 w-4 mr-2" />
+                    Delivery Details
+                  </h3>
+
+                  {isCalculatingDelivery ? (
+                    <div className="flex items-center text-[#1d2c36] text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Calculating delivery details...
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-start">
+                        <div className="bg-[#1d2c36] p-1.5 rounded-full mr-2 mt-0.5">
+                          <MapPin className="h-3 w-3 text-[#b9c6c8]" />
+                        </div>
+                        <div className="text-sm text-[#1d2c36]">
+                          <p className="font-medium">Pickup from:</p>
+                          <p>{vendorInfo.name}</p>
+                          <p className="text-xs opacity-75">{vendorInfo.address}</p>
+                        </div>
+                      </div>
+
+                      {distance !== null && (
+                        <div className="flex items-center">
+                          <div className="bg-[#1d2c36] p-1.5 rounded-full mr-2">
+                            <LocateFixed className="h-3 w-3 text-[#b9c6c8]" />
+                          </div>
+                          <div className="text-sm text-[#1d2c36]">
+                            <p>
+                              Distance: <span className="font-medium">{distance.toFixed(1)} km</span>
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Contact Information */}
@@ -727,7 +923,25 @@ const CheckoutPage = () => {
                 <Clock className="h-5 w-5 mr-2 text-[#1d2c36]" />
                 Estimated Delivery
               </h2>
-              <p className="text-[#1d2c36]">Your order will be delivered within minutes after payment confirmation.</p>
+
+              {isCalculatingDelivery ? (
+                <div className="flex items-center">
+                  <Loader2 className="h-5 w-5 animate-spin mr-2 text-[#1d2c36]" />
+                  <p className="text-[#1d2c36]">Calculating delivery time...</p>
+                </div>
+              ) : estimatedTime ? (
+                <div>
+                  <p className="text-[#1d2c36] text-lg font-medium">
+                    Your order will be delivered in approximately {formatDeliveryTime(estimatedTime)}
+                  </p>
+                  <p className="text-[#1d2c36] text-sm mt-2 opacity-75">
+                    This includes food preparation time and delivery based on a {distance?.toFixed(1) || "0"} km
+                    distance.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[#1d2c36]">Enter your delivery address to see the estimated delivery time.</p>
+              )}
             </div>
           </div>
 
@@ -749,7 +963,14 @@ const CheckoutPage = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#1d2c36]">Delivery Fee</span>
-                    <span className="font-medium text-[#1d2c36]">₦{deliveryFee.toLocaleString()}</span>
+                    {isCalculatingDelivery ? (
+                      <span className="font-medium text-[#1d2c36] flex items-center">
+                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                        Calculating...
+                      </span>
+                    ) : (
+                      <span className="font-medium text-[#1d2c36]">₦{deliveryFee.toLocaleString()}</span>
+                    )}
                   </div>
                   <div className="flex justify-between">
                     <span className="text-[#1d2c36]">Service Fee</span>
@@ -786,15 +1007,20 @@ const CheckoutPage = () => {
 
                 <button
                   onClick={handlePlaceOrder}
-                  disabled={isProcessing}
+                  disabled={isProcessing || isCalculatingDelivery}
                   className={`w-full bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] text-[#1d2c36] py-3 rounded-lg font-medium hover:from-[#a8b5b8] hover:to-[#97a4a7] transition-all duration-300 flex items-center justify-center ${
-                    isProcessing ? "opacity-70 cursor-not-allowed" : ""
+                    isProcessing || isCalculatingDelivery ? "opacity-70 cursor-not-allowed" : ""
                   }`}
                 >
                   {isProcessing ? (
                     <>
                       <Loader2 className="animate-spin h-5 w-5 mr-2" />
                       Processing...
+                    </>
+                  ) : isCalculatingDelivery ? (
+                    <>
+                      <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                      Calculating...
                     </>
                   ) : (
                     "Place Order & Pay"
