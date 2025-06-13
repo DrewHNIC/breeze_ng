@@ -5,7 +5,7 @@ import { useRouter } from "next/router"
 import dynamic from "next/dynamic"
 import { supabase } from "@/utils/supabase"
 import CustomerLayout from "../../components/CustomerLayout"
-import { ShoppingCart, AlertCircle, Loader2, ArrowLeft, Bug } from 'lucide-react'
+import { ShoppingCart, AlertCircle, Loader2, ArrowLeft, Bug } from "lucide-react"
 import Link from "next/link"
 
 // Dynamically import components with ssr: false to prevent server-side rendering
@@ -141,7 +141,7 @@ const CartPage = () => {
       setDebugInfo({
         rawData: data,
         userId: session.user.id,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       })
 
       console.log("Cart items fetched:", data)
@@ -324,9 +324,9 @@ const CartPage = () => {
                 Browse Restaurants
               </Link>
             </div>
-            
+
             {/* Debug section - only visible in development */}
-            {process.env.NODE_ENV !== 'production' && debugInfo && (
+            {process.env.NODE_ENV !== "production" && debugInfo && (
               <div className="mt-8 p-4 border border-[#b9c6c8] rounded-lg bg-[#f5f5f5]">
                 <div className="flex items-center mb-2">
                   <Bug className="h-5 w-5 mr-2 text-[#1d2c36]" />
@@ -357,7 +357,6 @@ const CartPage = () => {
                 <CartSummary
                   vendorId={vendorCount === 1 ? Object.keys(groupedItems)[0] : null}
                   subtotal={subtotal}
-                  deliveryFee={500}
                   serviceFee={200}
                   itemCount={totalItems}
                   isMultipleVendors={vendorCount > 1}

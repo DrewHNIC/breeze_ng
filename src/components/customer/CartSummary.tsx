@@ -21,7 +21,6 @@ interface CartSummaryProps {
   // New props
   vendorId: string | null
   subtotal?: number
-  deliveryFee?: number
   serviceFee?: number
   itemCount?: number
   isMultipleVendors?: boolean
@@ -35,7 +34,6 @@ const CartSummary = ({
   items = [],
   vendorId,
   subtotal: propSubtotal,
-  deliveryFee = 500,
   serviceFee: propServiceFee,
   itemCount: propItemCount,
   isMultipleVendors = false,
@@ -58,8 +56,8 @@ const CartSummary = ({
   // Calculate VAT (7.5% in Nigeria)
   const vat = Math.round(subtotal * 0.075)
 
-  // Calculate total with loyalty discount
-  const total = subtotal + deliveryFee + serviceFee + vat - loyaltyDiscount
+  // Calculate total with loyalty discount (delivery fee will be calculated at checkout)
+  const total = subtotal + serviceFee + vat - loyaltyDiscount
 
   useEffect(() => {
     // Show cart summary only if there are items
@@ -145,10 +143,6 @@ const CartSummary = ({
           <span className="font-medium text-[#1d2c36]">₦{subtotal.toLocaleString()}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-[#1d2c36]">Delivery Fee</span>
-          <span className="font-medium text-[#1d2c36]">₦{deliveryFee.toLocaleString()}</span>
-        </div>
-        <div className="flex justify-between">
           <span className="text-[#1d2c36]">Service Fee</span>
           <span className="font-medium text-[#1d2c36]">₦{serviceFee.toLocaleString()}</span>
         </div>
@@ -169,9 +163,10 @@ const CartSummary = ({
 
         <div className="border-t border-[#1d2c36] pt-3 mt-3">
           <div className="flex justify-between font-bold text-[#1d2c36]">
-            <span>Total</span>
+            <span>Subtotal</span>
             <span>₦{total.toLocaleString()}</span>
           </div>
+          <div className="text-xs text-[#1d2c36] mt-1">Delivery fee will be calculated at checkout</div>
 
           {showLoyaltyPoints && loyaltyDiscount > 0 && (
             <div className="text-right text-sm mt-1 text-[#1d2c36]">You saved ₦{loyaltyDiscount.toLocaleString()}</div>
