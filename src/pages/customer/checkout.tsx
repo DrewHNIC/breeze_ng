@@ -17,6 +17,7 @@ import {
   ShoppingCart,
   Truck,
   LocateFixed,
+  AlertTriangle,
 } from "lucide-react"
 import {
   calculateDistance,
@@ -25,6 +26,8 @@ import {
   formatDeliveryTime,
   geocodeAddress,
   getMockVendorCoordinates,
+  isDeliveryDistanceBeyondThreshold,
+  calculateServiceFee,
   type Address,
   type Coordinates,
 } from "@/utils/delivery-utils"
@@ -63,6 +66,8 @@ interface VendorInfo {
   id: string
   name: string
   address: string
+  city: string
+  state: string
   coordinates?: Coordinates
 }
 
@@ -88,6 +93,7 @@ const CheckoutPage = () => {
   const [vendorInfo, setVendorInfo] = useState<VendorInfo | null>(null)
   const [customerCoordinates, setCustomerCoordinates] = useState<Coordinates | null>(null)
   const [vendorCoordinates, setVendorCoordinates] = useState<Coordinates | null>(null)
+  const [isBeyondThreshold, setIsBeyondThreshold] = useState(false)
 
   // Loyalty points states
   const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null)
@@ -164,6 +170,7 @@ const CheckoutPage = () => {
         }
 
         // Modified query to get cart items with menu items and vendor info
+        // Join with vendor_profiles to get the address
         const query = supabase
           .from("cart_items")
           .select(`
@@ -176,7 +183,15 @@ const CheckoutPage = () => {
               price, 
               image_url, 
               vendor_id,
-              vendors(id, store_name, business_address)
+              vendors(
+                id, 
+                store_name,
+                vendor_profiles(
+                  address,
+                  city,
+                  state
+                )
+              )
             )
           `)
           .eq("customer_id", session.user.id)
@@ -208,7 +223,9 @@ const CheckoutPage = () => {
             name: item.menu_items.name,
             vendor_id: item.menu_items.vendor_id || "",
             vendor_name: item.menu_items.vendors?.store_name || "Unknown Vendor",
-            vendor_address: item.menu_items.vendors?.business_address || "",
+            vendor_address: item.menu_items.vendors?.vendor_profiles?.[0]?.address || "",
+            vendor_city: item.menu_items.vendors?.vendor_profiles?.[0]?.city || "",
+            vendor_state: item.menu_items.vendors?.vendor_profiles?.[0]?.state || "",
           }))
 
         // Filter by vendor if vendorId is provided
@@ -227,6 +244,8 @@ const CheckoutPage = () => {
             id: firstItem.vendor_id,
             name: firstItem.vendor_name,
             address: firstItem.vendor_address || "No address provided",
+            city: firstItem.vendor_city || "",
+            state: firstItem.vendor_state || "",
           })
         }
 
@@ -234,9 +253,9 @@ const CheckoutPage = () => {
         const itemSubtotal = transformedItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
         setSubtotal(itemSubtotal)
 
-        // Calculate service fee (base fee of 200 + 50 per item, capped at 500)
+        // Calculate service fee (base fee of 300 + 135 per additional item)
         const totalItems = transformedItems.reduce((sum, item) => sum + item.quantity, 0)
-        const calculatedServiceFee = Math.min(200 + totalItems * 50, 500)
+        const calculatedServiceFee = calculateServiceFee(totalItems)
         setServiceFee(calculatedServiceFee)
 
         // Calculate VAT (7.5% in Nigeria)
@@ -302,6 +321,10 @@ const CheckoutPage = () => {
         // Calculate distance
         const calculatedDistance = calculateDistance(customerCoords, vendorCoords)
         setDistance(calculatedDistance)
+
+        // Check if beyond threshold
+        const beyond = isDeliveryDistanceBeyondThreshold(calculatedDistance)
+        setIsBeyondThreshold(beyond)
 
         // Calculate delivery fee
         const fee = calculateDeliveryFee(calculatedDistance)
@@ -798,7 +821,11 @@ const CheckoutPage = () => {
                         <div className="text-sm text-[#1d2c36]">
                           <p className="font-medium">Pickup from:</p>
                           <p>{vendorInfo.name}</p>
-                          <p className="text-xs opacity-75">{vendorInfo.address}</p>
+                          <p className="text-xs opacity-75">
+                            {vendorInfo.address}
+                            {vendorInfo.city && `, ${vendorInfo.city}`}
+                            {vendorInfo.state && `, ${vendorInfo.state}`}
+                          </p>
                         </div>
                       </div>
 
@@ -812,6 +839,16 @@ const CheckoutPage = () => {
                               Distance: <span className="font-medium">{distance.toFixed(1)} km</span>
                             </p>
                           </div>
+                        </div>
+                      )}
+
+                      {isBeyondThreshold && (
+                        <div className="flex items-start mt-2 bg-amber-50 p-3 rounded-lg border border-amber-200">
+                          <AlertTriangle className="h-4 w-4 text-amber-500 mr-2 mt-0.5 flex-shrink-0" />
+                          <p className="text-sm text-amber-700">
+                            Your delivery address is more than 5km away from the restaurant. Additional delivery fees
+                            apply.
+                          </p>
                         </div>
                       )}
                     </div>
