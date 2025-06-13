@@ -20,13 +20,11 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import {
-  calculateDistance,
-  calculateDeliveryFee,
-  calculateEstimatedDeliveryTime,
-  formatDeliveryTime,
-  geocodeAddress,
-  isDeliveryDistanceBeyondThreshold,
+  calculateDeliveryDetails,
   calculateServiceFee,
+  formatDeliveryTime,
+  validateAddress,
+  formatAddressForDisplay,
   type Address,
   type Coordinates,
 } from "@/utils/delivery-utils"
@@ -322,7 +320,7 @@ const CheckoutPage = () => {
 
   // Calculate delivery fee when address changes or vendor info is available
   useEffect(() => {
-    const calculateDeliveryDetails = async () => {
+    const performDeliveryCalculation = async () => {
       if (!vendorInfo || !deliveryAddress.address || !deliveryAddress.city || !deliveryAddress.state) {
         return
       }
@@ -330,7 +328,13 @@ const CheckoutPage = () => {
       try {
         setIsCalculatingDelivery(true)
 
-        // Get customer coordinates
+        // Prepare addresses for geocoding
+        const vendorAddress: Address = {
+          address: vendorInfo.address,
+          city: vendorInfo.city,
+          state: vendorInfo.state,
+        }
+
         const customerAddress: Address = {
           address: deliveryAddress.address,
           city: deliveryAddress.city,
@@ -338,51 +342,34 @@ const CheckoutPage = () => {
           zipCode: deliveryAddress.zipCode,
         }
 
-        // Get vendor address
-        const vendorAddress: Address = {
-          address: vendorInfo.address,
-          city: vendorInfo.city,
-          state: vendorInfo.state,
+        // Validate addresses
+        if (!validateAddress(vendorAddress)) {
+          throw new Error("Vendor address is incomplete")
         }
 
-        // In a real implementation, we would use a geocoding API
-        // For now, we'll use our mock function
-        let customerCoords: Coordinates
-        let vendorCoords: Coordinates
-
-        if (!customerCoordinates) {
-          customerCoords = await geocodeAddress(customerAddress)
-          setCustomerCoordinates(customerCoords)
-        } else {
-          customerCoords = customerCoordinates
+        if (!validateAddress(customerAddress)) {
+          throw new Error("Customer address is incomplete")
         }
 
-        if (!vendorCoordinates) {
-          // Use the vendor's actual address for geocoding
-          vendorCoords = await geocodeAddress(vendorAddress)
-          setVendorCoordinates(vendorCoords)
-        } else {
-          vendorCoords = vendorCoordinates
-        }
+        console.log("Starting delivery calculation...")
+        console.log("Vendor address:", formatAddressForDisplay(vendorAddress))
+        console.log("Customer address:", formatAddressForDisplay(customerAddress))
 
-        // Calculate distance
-        const calculatedDistance = calculateDistance(customerCoords, vendorCoords)
-        setDistance(calculatedDistance)
+        // Calculate delivery details using the new accurate service
+        const deliveryDetails = await calculateDeliveryDetails(vendorAddress, customerAddress)
 
-        // Check if beyond threshold
-        const beyond = isDeliveryDistanceBeyondThreshold(calculatedDistance)
-        setIsBeyondThreshold(beyond)
+        console.log("Delivery calculation completed:", deliveryDetails)
 
-        // Calculate delivery fee
-        const fee = calculateDeliveryFee(calculatedDistance)
-        setDeliveryFee(fee)
-
-        // Calculate estimated delivery time
-        const time = calculateEstimatedDeliveryTime(calculatedDistance)
-        setEstimatedTime(time)
+        // Update state with calculated values
+        setDistance(deliveryDetails.distance)
+        setDeliveryFee(deliveryDetails.deliveryFee)
+        setEstimatedTime(deliveryDetails.estimatedTime)
+        setIsBeyondThreshold(deliveryDetails.isBeyondThreshold)
+        setCustomerCoordinates(deliveryDetails.customerCoordinates)
+        setVendorCoordinates(deliveryDetails.vendorCoordinates)
 
         // Update total with delivery fee
-        const newTotal = subtotal + serviceFee + vat + fee
+        const newTotal = subtotal + serviceFee + vat + deliveryDetails.deliveryFee
         setTotal(newTotal)
 
         // Update final total with discount if applicable
@@ -395,22 +382,24 @@ const CheckoutPage = () => {
         }
       } catch (error) {
         console.error("Error calculating delivery details:", error)
+        setPaymentError(
+          `Failed to calculate delivery details: ${error instanceof Error ? error.message : "Unknown error"}`,
+        )
       } finally {
         setIsCalculatingDelivery(false)
       }
     }
 
-    calculateDeliveryDetails()
+    performDeliveryCalculation()
   }, [
     vendorInfo,
     deliveryAddress.address,
     deliveryAddress.city,
     deliveryAddress.state,
+    deliveryAddress.zipCode,
     subtotal,
     serviceFee,
     vat,
-    customerCoordinates,
-    vendorCoordinates,
   ])
 
   // Calculate discount when loyalty points are toggled

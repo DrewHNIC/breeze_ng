@@ -1,4 +1,13 @@
-// Utility functions for delivery calculations
+// Updated delivery utilities using accurate geocoding and routing
+
+import {
+  geocodeAddress,
+  calculateRoute,
+  type Coordinates,
+  type Address,
+  type GeocodeResult,
+  type RouteResult,
+} from "./geocoding-service"
 
 // Constants for delivery fee calculation
 const BASE_FEE = 1000 // Base delivery fee in Naira (also minimum fee)
@@ -10,48 +19,8 @@ const DISTANCE_THRESHOLD = 5 // Threshold in kilometers for higher rate
 const AVG_SPEED_KM_PER_MIN = 0.5 // Average speed in km per minute (30km/h)
 const PREPARATION_TIME_MIN = 15 // Food preparation time in minutes
 
-// Interface for coordinates
-export interface Coordinates {
-  lat: number
-  lng: number
-}
-
-// Interface for address
-export interface Address {
-  address: string
-  city: string
-  state: string
-  zipCode?: string
-  coordinates?: Coordinates
-}
-
-/**
- * Calculate distance between two coordinates using Haversine formula
- * @param coord1 First coordinate
- * @param coord2 Second coordinate
- * @returns Distance in kilometers
- */
-export function calculateDistance(coord1: Coordinates, coord2: Coordinates): number {
-  const R = 6371 // Earth's radius in km
-  const dLat = toRad(coord2.lat - coord1.lat)
-  const dLon = toRad(coord2.lng - coord1.lng)
-
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(coord1.lat)) * Math.cos(toRad(coord2.lat)) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  const distance = R * c
-
-  return Number.parseFloat(distance.toFixed(2))
-}
-
-/**
- * Convert degrees to radians
- */
-function toRad(degrees: number): number {
-  return (degrees * Math.PI) / 180
-}
+// Re-export types for convenience
+export type { Coordinates, Address, GeocodeResult, RouteResult }
 
 /**
  * Calculate delivery fee based on distance with tiered pricing
@@ -98,14 +67,24 @@ export function calculateServiceFee(itemCount: number): number {
 }
 
 /**
- * Calculate estimated delivery time based on distance
+ * Calculate estimated delivery time based on distance and route duration
  * @param distanceKm Distance in kilometers
+ * @param routeDurationSeconds Optional route duration in seconds from OSRM
  * @returns Estimated delivery time in minutes
  */
-export function calculateEstimatedDeliveryTime(distanceKm: number): number {
+export function calculateEstimatedDeliveryTime(distanceKm: number, routeDurationSeconds?: number): number {
   if (distanceKm <= 0) return PREPARATION_TIME_MIN
 
-  const travelTimeMinutes = distanceKm / AVG_SPEED_KM_PER_MIN
+  let travelTimeMinutes: number
+
+  if (routeDurationSeconds && routeDurationSeconds > 0) {
+    // Use actual route duration if available
+    travelTimeMinutes = routeDurationSeconds / 60
+  } else {
+    // Fallback to distance-based calculation
+    travelTimeMinutes = distanceKm / AVG_SPEED_KM_PER_MIN
+  }
+
   const totalTimeMinutes = PREPARATION_TIME_MIN + travelTimeMinutes
 
   return Math.ceil(totalTimeMinutes)
@@ -132,92 +111,86 @@ export function formatDeliveryTime(minutes: number): string {
 }
 
 /**
- * Geocode an address to get coordinates
- * In a production environment, this would use the Google Maps Geocoding API
- * @param address Address to geocode
- * @returns Promise resolving to coordinates
+ * Calculate delivery details including distance, fee, and estimated time
+ * @param vendorAddress Vendor address
+ * @param customerAddress Customer address
+ * @returns Promise resolving to delivery details
  */
-export async function geocodeAddress(address: Address): Promise<Coordinates> {
-  // In a production environment, this would be implemented as:
-  /*
-  const API_KEY = process.env.GOOGLE_MAPS_API_KEY;
-  const formattedAddress = encodeURIComponent(
-    `${address.address}, ${address.city}, ${address.state}${address.zipCode ? `, ${address.zipCode}` : ''}`
-  );
-  
-  const response = await fetch(
-    `https://maps.googleapis.com/maps/api/geocode/json?address=${formattedAddress}&key=${API_KEY}`
-  );
-  
-  const data = await response.json();
-  
-  if (data.status === 'OK' && data.results && data.results.length > 0) {
-    const location = data.results[0].geometry.location;
+export async function calculateDeliveryDetails(vendorAddress: Address, customerAddress: Address) {
+  try {
+    console.log("Calculating delivery details...")
+    console.log("Vendor address:", vendorAddress)
+    console.log("Customer address:", customerAddress)
+
+    // Geocode both addresses
+    const [vendorGeocode, customerGeocode] = await Promise.all([
+      geocodeAddress(vendorAddress),
+      geocodeAddress(customerAddress),
+    ])
+
+    console.log("Vendor coordinates:", vendorGeocode.coordinates)
+    console.log("Customer coordinates:", customerGeocode.coordinates)
+
+    // Calculate route
+    const route = await calculateRoute(vendorGeocode.coordinates, customerGeocode.coordinates)
+
+    console.log("Route calculated:", route)
+
+    // Calculate delivery fee
+    const deliveryFee = calculateDeliveryFee(route.distance)
+
+    // Calculate estimated delivery time
+    const estimatedTime = calculateEstimatedDeliveryTime(route.distance, route.duration)
+
+    // Check if beyond threshold
+    const isBeyondThreshold = isDeliveryDistanceBeyondThreshold(route.distance)
+
     return {
-      lat: location.lat,
-      lng: location.lng
-    };
+      distance: route.distance,
+      deliveryFee,
+      estimatedTime,
+      isBeyondThreshold,
+      vendorCoordinates: vendorGeocode.coordinates,
+      customerCoordinates: customerGeocode.coordinates,
+      routeDuration: route.duration,
+      vendorFormattedAddress: vendorGeocode.formattedAddress,
+      customerFormattedAddress: customerGeocode.formattedAddress,
+    }
+  } catch (error) {
+    console.error("Error calculating delivery details:", error)
+    throw new Error("Failed to calculate delivery details. Please check the addresses and try again.")
   }
-  */
-
-  // For now, we'll use a more deterministic mock implementation
-  // This creates more realistic coordinates based on the address string
-  const fullAddress = `${address.address}, ${address.city}, ${address.state}`
-
-  // Use specific coordinates for common Nigerian cities
-  if (fullAddress.toLowerCase().includes("lagos")) {
-    // Lagos coordinates with slight variation
-    const variation = Math.random() * 0.05 - 0.025
-    return {
-      lat: 6.5244 + variation,
-      lng: 3.3792 + variation,
-    }
-  } else if (fullAddress.toLowerCase().includes("abuja")) {
-    // Abuja coordinates with slight variation
-    const variation = Math.random() * 0.05 - 0.025
-    return {
-      lat: 9.0765 + variation,
-      lng: 7.3986 + variation,
-    }
-  } else if (fullAddress.toLowerCase().includes("kano")) {
-    // Kano coordinates with slight variation
-    const variation = Math.random() * 0.05 - 0.025
-    return {
-      lat: 12.0022 + variation,
-      lng: 8.592 + variation,
-    }
-  } else if (fullAddress.toLowerCase().includes("ibadan")) {
-    // Ibadan coordinates with slight variation
-    const variation = Math.random() * 0.05 - 0.025
-    return {
-      lat: 7.3775 + variation,
-      lng: 3.947 + variation,
-    }
-  }
-
-  // For other addresses, generate coordinates based on a hash of the address
-  let hash = 0
-  for (let i = 0; i < fullAddress.length; i++) {
-    hash = (hash << 5) - hash + fullAddress.charCodeAt(i)
-    hash |= 0 // Convert to 32bit integer
-  }
-
-  // Generate coordinates within Nigeria (roughly)
-  // Nigeria's bounds: ~4-14°N, 3-15°E
-  const lat = 6.5 + (Math.abs(hash % 100) / 100) * 7.5 // 6.5-14°N (central to northern Nigeria)
-  const lng = 3.3 + (Math.abs((hash >> 10) % 100) / 100) * 11.7 // 3.3-15°E (western to eastern Nigeria)
-
-  return { lat, lng }
 }
 
 /**
- * Get vendor coordinates based on vendor address
- * In a production environment, this would use the Google Maps Geocoding API
- * @param address Vendor address
- * @returns Promise resolving to coordinates
+ * Validate that an address has all required fields for geocoding
+ * @param address Address to validate
+ * @returns Boolean indicating if address is valid
  */
-export async function getVendorCoordinates(address: Address): Promise<Coordinates> {
-  // In a production environment, this would call the Google Maps Geocoding API
-  // For now, we'll use the same geocoding function as for customer addresses
-  return await geocodeAddress(address)
+export function validateAddress(address: Address): boolean {
+  return Boolean(
+    address &&
+      address.address &&
+      address.address.trim() &&
+      address.city &&
+      address.city.trim() &&
+      address.state &&
+      address.state.trim(),
+  )
+}
+
+/**
+ * Format address for display
+ * @param address Address to format
+ * @returns Formatted address string
+ */
+export function formatAddressForDisplay(address: Address): string {
+  const parts = []
+
+  if (address.address) parts.push(address.address)
+  if (address.city) parts.push(address.city)
+  if (address.state) parts.push(address.state)
+  if (address.zipCode) parts.push(address.zipCode)
+
+  return parts.join(", ")
 }
