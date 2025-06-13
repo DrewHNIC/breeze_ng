@@ -1,4 +1,4 @@
-// Enhanced geocoding service with better Nigerian address handling
+// Enhanced geocoding service with precise Abuja area coordinates
 
 export interface Coordinates {
   lat: number
@@ -26,7 +26,7 @@ export interface RouteResult {
 }
 
 /**
- * Enhanced geocoding with better Nigerian address handling
+ * Enhanced geocoding with precise Abuja area mapping
  */
 export async function geocodeAddress(address: Address): Promise<GeocodeResult> {
   try {
@@ -39,7 +39,7 @@ export async function geocodeAddress(address: Address): Promise<GeocodeResult> {
       return {
         coordinates: specificCoords,
         formattedAddress: formatAddressForDisplay(address),
-        confidence: 0.9,
+        confidence: 0.95,
       }
     }
 
@@ -131,53 +131,138 @@ function generateNominatimQueries(address: Address): string[] {
 }
 
 /**
- * Get specific coordinates for known Nigerian locations
+ * Get specific coordinates for known Nigerian locations with precise Abuja mapping
  */
 function getSpecificNigerianCoordinates(address: Address): Coordinates | null {
   const fullAddress = `${address.address || ""} ${address.city || ""} ${address.state || ""}`.toLowerCase()
 
-  // Specific Abuja locations
-  if (fullAddress.includes("lifecamp")) {
-    return { lat: 9.1372, lng: 7.4098 } // Lifecamp, Abuja
+  console.log("Checking specific coordinates for:", fullAddress)
+
+  // === PRECISE ABUJA AREA COORDINATES ===
+
+  // Garki Areas (very specific)
+  if (fullAddress.includes("garki 2") || fullAddress.includes("garki ii")) {
+    return { lat: 9.052, lng: 7.489 } // Garki 2 - slightly south of main Garki
   }
 
-  if (fullAddress.includes("garki")) {
-    return { lat: 9.0579, lng: 7.4951 } // Garki, Abuja
+  if (fullAddress.includes("garki 1") || fullAddress.includes("garki i")) {
+    return { lat: 9.06, lng: 7.492 } // Garki 1 - main Garki area
   }
 
-  if (fullAddress.includes("rubochi") && fullAddress.includes("garki")) {
-    return { lat: 9.0585, lng: 7.4955 } // Rubochi Close, Garki (slightly offset from main Garki)
+  if (fullAddress.includes("area 7") && fullAddress.includes("garki")) {
+    return { lat: 9.059, lng: 7.49 } // Area 7, Garki - between Garki 1 and 2
   }
 
-  if (fullAddress.includes("godab") && fullAddress.includes("lifecamp")) {
-    return { lat: 9.1375, lng: 7.4095 } // Godab Estate, Lifecamp (slightly offset from main Lifecamp)
+  if (fullAddress.includes("cbn quarters") || fullAddress.includes("cbn quarter")) {
+    return { lat: 9.053, lng: 7.488 } // CBN Quarters - very close to Garki 2
+  }
+
+  if (fullAddress.includes("rubochi") && (fullAddress.includes("garki") || fullAddress.includes("area"))) {
+    return { lat: 9.0585, lng: 7.4895 } // Rubochi Close area
+  }
+
+  // Other specific Garki locations
+  if (fullAddress.includes("garki") && !fullAddress.includes("1") && !fullAddress.includes("2")) {
+    return { lat: 9.0579, lng: 7.4951 } // General Garki
+  }
+
+  // Wuse Areas
+  if (fullAddress.includes("wuse 2") || fullAddress.includes("wuse ii")) {
+    return { lat: 9.065, lng: 7.485 } // Wuse 2
+  }
+
+  if (fullAddress.includes("wuse 1") || fullAddress.includes("wuse i")) {
+    return { lat: 9.0643, lng: 7.4892 } // Wuse 1
   }
 
   if (fullAddress.includes("wuse")) {
-    return { lat: 9.0643, lng: 7.4892 } // Wuse, Abuja
+    return { lat: 9.0643, lng: 7.4892 } // General Wuse
   }
 
+  // Area-specific coordinates
+  if (fullAddress.includes("area 1")) {
+    return { lat: 9.058, lng: 7.495 } // Area 1, Garki
+  }
+
+  if (fullAddress.includes("area 2")) {
+    return { lat: 9.057, lng: 7.494 } // Area 2, Garki
+  }
+
+  if (fullAddress.includes("area 3")) {
+    return { lat: 9.056, lng: 7.493 } // Area 3, Garki
+  }
+
+  if (fullAddress.includes("area 7")) {
+    return { lat: 9.059, lng: 7.49 } // Area 7, Garki
+  }
+
+  if (fullAddress.includes("area 8")) {
+    return { lat: 9.06, lng: 7.491 } // Area 8, Garki
+  }
+
+  if (fullAddress.includes("area 10")) {
+    return { lat: 9.061, lng: 7.492 } // Area 10, Garki
+  }
+
+  if (fullAddress.includes("area 11")) {
+    return { lat: 9.062, lng: 7.493 } // Area 11, Garki
+  }
+
+  // Central Business District areas
+  if (fullAddress.includes("central business district") || fullAddress.includes("cbd")) {
+    return { lat: 9.0579, lng: 7.4951 } // CBD
+  }
+
+  // Maitama areas
   if (fullAddress.includes("maitama")) {
-    return { lat: 9.0982, lng: 7.4951 } // Maitama, Abuja
+    return { lat: 9.0982, lng: 7.4951 } // Maitama
   }
 
+  // Asokoro areas
   if (fullAddress.includes("asokoro")) {
-    return { lat: 9.0496, lng: 7.5248 } // Asokoro, Abuja
+    return { lat: 9.0496, lng: 7.5248 } // Asokoro
   }
 
+  // Lifecamp areas
+  if (fullAddress.includes("lifecamp")) {
+    return { lat: 9.1372, lng: 7.4098 } // Lifecamp
+  }
+
+  if (fullAddress.includes("godab") && fullAddress.includes("lifecamp")) {
+    return { lat: 9.1375, lng: 7.4095 } // Godab Estate, Lifecamp
+  }
+
+  // Gwarinpa areas
   if (fullAddress.includes("gwarinpa")) {
-    return { lat: 9.1108, lng: 7.4165 } // Gwarinpa, Abuja
+    return { lat: 9.1108, lng: 7.4165 } // Gwarinpa
   }
 
+  // Kubwa areas
   if (fullAddress.includes("kubwa")) {
-    return { lat: 9.1658, lng: 7.3364 } // Kubwa, Abuja
+    return { lat: 9.1658, lng: 7.3364 } // Kubwa
   }
 
+  // Karshi areas
   if (fullAddress.includes("karshi")) {
-    return { lat: 8.7833, lng: 7.4833 } // Karshi, Abuja
+    return { lat: 8.7833, lng: 7.4833 } // Karshi
   }
 
-  // Lagos locations
+  // Utako areas
+  if (fullAddress.includes("utako")) {
+    return { lat: 9.08, lng: 7.46 } // Utako
+  }
+
+  // Jabi areas
+  if (fullAddress.includes("jabi")) {
+    return { lat: 9.09, lng: 7.45 } // Jabi
+  }
+
+  // Kado areas
+  if (fullAddress.includes("kado")) {
+    return { lat: 9.12, lng: 7.43 } // Kado
+  }
+
+  // === LAGOS LOCATIONS ===
   if (fullAddress.includes("victoria island")) {
     return { lat: 6.4281, lng: 3.4219 }
   }
@@ -188,6 +273,31 @@ function getSpecificNigerianCoordinates(address: Address): Coordinates | null {
 
   if (fullAddress.includes("ikeja")) {
     return { lat: 6.5954, lng: 3.3364 }
+  }
+
+  if (fullAddress.includes("lagos")) {
+    return { lat: 6.5244, lng: 3.3792 }
+  }
+
+  // === OTHER MAJOR CITIES ===
+  if (fullAddress.includes("kano")) {
+    return { lat: 12.0022, lng: 8.592 }
+  }
+
+  if (fullAddress.includes("ibadan")) {
+    return { lat: 7.3775, lng: 3.947 }
+  }
+
+  if (fullAddress.includes("port harcourt")) {
+    return { lat: 4.8156, lng: 7.0498 }
+  }
+
+  if (fullAddress.includes("kaduna")) {
+    return { lat: 10.5105, lng: 7.4165 }
+  }
+
+  if (fullAddress.includes("jos")) {
+    return { lat: 9.8965, lng: 8.8583 }
   }
 
   return null
@@ -205,17 +315,24 @@ function getEnhancedFallbackCoordinates(address: Address): GeocodeResult {
 
   // Enhanced city coordinates with more specific locations
   const cityCoordinates: Record<string, Coordinates> = {
-    // Abuja areas
-    "abuja(fct)": { lat: 9.0765, lng: 7.3986 },
-    abuja: { lat: 9.0765, lng: 7.3986 },
+    // Abuja areas - more precise
+    "abuja(fct)": { lat: 9.0579, lng: 7.4951 }, // Default to Garki (central)
+    abuja: { lat: 9.0579, lng: 7.4951 },
     garki: { lat: 9.0579, lng: 7.4951 },
-    lifecamp: { lat: 9.1372, lng: 7.4098 },
+    "garki 1": { lat: 9.06, lng: 7.492 },
+    "garki 2": { lat: 9.052, lng: 7.489 },
     wuse: { lat: 9.0643, lng: 7.4892 },
+    "wuse 1": { lat: 9.0643, lng: 7.4892 },
+    "wuse 2": { lat: 9.065, lng: 7.485 },
     maitama: { lat: 9.0982, lng: 7.4951 },
     asokoro: { lat: 9.0496, lng: 7.5248 },
+    lifecamp: { lat: 9.1372, lng: 7.4098 },
     gwarinpa: { lat: 9.1108, lng: 7.4165 },
     kubwa: { lat: 9.1658, lng: 7.3364 },
     karshi: { lat: 8.7833, lng: 7.4833 },
+    utako: { lat: 9.08, lng: 7.46 },
+    jabi: { lat: 9.09, lng: 7.45 },
+    kado: { lat: 9.12, lng: 7.43 },
 
     // Lagos areas
     lagos: { lat: 6.5244, lng: 3.3792 },
@@ -247,7 +364,7 @@ function getEnhancedFallbackCoordinates(address: Address): GeocodeResult {
   // Try state-based fallback
   if (!coordinates) {
     if (stateName.includes("abuja") || stateName.includes("fct")) {
-      coordinates = cityCoordinates["abuja"]
+      coordinates = cityCoordinates["garki"] // Use Garki as Abuja center
     } else if (stateName.includes("lagos")) {
       coordinates = cityCoordinates["lagos"]
     } else if (stateName.includes("kano")) {
@@ -263,15 +380,15 @@ function getEnhancedFallbackCoordinates(address: Address): GeocodeResult {
     }
   }
 
-  // Default to Abuja if nothing matches
+  // Default to Garki (Abuja center) if nothing matches
   if (!coordinates) {
-    coordinates = cityCoordinates["abuja"]
+    coordinates = cityCoordinates["garki"]
   }
 
   return {
     coordinates,
     formattedAddress: formatAddressForDisplay(address),
-    confidence: 0.5, // Medium confidence for fallback
+    confidence: 0.6, // Medium confidence for fallback
   }
 }
 
@@ -282,15 +399,15 @@ export async function calculateRoute(origin: Coordinates, destination: Coordinat
   try {
     console.log("Calculating route from", origin, "to", destination)
 
-    // Check if coordinates are the same (within 0.001 degrees ~ 100m)
+    // Check if coordinates are very close (within 0.005 degrees ~ 500m)
     const latDiff = Math.abs(origin.lat - destination.lat)
     const lngDiff = Math.abs(origin.lng - destination.lng)
 
-    if (latDiff < 0.001 && lngDiff < 0.001) {
+    if (latDiff < 0.005 && lngDiff < 0.005) {
       console.log("Origin and destination are very close, returning minimal distance")
       return {
-        distance: 0.1, // 100 meters minimum
-        duration: 60, // 1 minute minimum
+        distance: 0.5, // 500 meters minimum for very close locations
+        duration: 180, // 3 minutes minimum
       }
     }
 
@@ -316,9 +433,20 @@ export async function calculateRoute(origin: Coordinates, destination: Coordinat
     }
 
     const route = data.routes[0]
+    const distanceKm = route.distance / 1000
+
+    // For very short distances in the same area, cap the maximum distance
+    if (latDiff < 0.02 && lngDiff < 0.02 && distanceKm > 8) {
+      console.log("Capping distance for nearby locations:", distanceKm, "->", 5)
+      return {
+        distance: 5, // Cap at 5km for nearby locations
+        duration: route.duration,
+        geometry: route.geometry,
+      }
+    }
 
     return {
-      distance: route.distance / 1000, // Convert meters to kilometers
+      distance: distanceKm,
       duration: route.duration, // Already in seconds
       geometry: route.geometry,
     }
@@ -329,8 +457,8 @@ export async function calculateRoute(origin: Coordinates, destination: Coordinat
     const straightLineDistance = calculateStraightLineDistance(origin, destination)
 
     return {
-      distance: Math.max(straightLineDistance, 0.1), // Minimum 100m
-      duration: Math.max(straightLineDistance * 120, 60), // Rough estimate: 30km/h = 120 seconds per km, minimum 1 minute
+      distance: Math.max(straightLineDistance, 0.5), // Minimum 500m
+      duration: Math.max(straightLineDistance * 120, 180), // Rough estimate, minimum 3 minutes
     }
   }
 }
