@@ -25,7 +25,6 @@ import {
   calculateEstimatedDeliveryTime,
   formatDeliveryTime,
   geocodeAddress,
-  getMockVendorCoordinates,
   isDeliveryDistanceBeyondThreshold,
   calculateServiceFee,
   type Address,
@@ -169,8 +168,37 @@ const CheckoutPage = () => {
           console.log("Customer loyalty points:", customerData.loyalty_points)
         }
 
-        // Modified query to get cart items with menu items and vendor info
-        // Join with vendor_profiles to get the address
+        // First, fetch vendor information directly if vendorId is provided
+        let vendorAddress = ""
+        let vendorCity = ""
+        let vendorState = ""
+        let vendorName = ""
+
+        if (vendorId && typeof vendorId === "string" && vendorId !== "null") {
+          // Direct query to get vendor profile information
+          const { data: vendorProfileData, error: vendorProfileError } = await supabase
+            .from("vendor_profiles")
+            .select("address, city, state, vendor_id")
+            .eq("vendor_id", vendorId)
+            .single()
+
+          if (vendorProfileData) {
+            vendorAddress = vendorProfileData.address || ""
+            vendorCity = vendorProfileData.city || ""
+            vendorState = vendorProfileData.state || ""
+
+            // Get vendor name
+            const { data: vendorData } = await supabase.from("vendors").select("store_name").eq("id", vendorId).single()
+
+            if (vendorData) {
+              vendorName = vendorData.store_name || ""
+            }
+          } else if (vendorProfileError) {
+            console.error("Error fetching vendor profile:", vendorProfileError)
+          }
+        }
+
+        // Modified query to get cart items with menu items
         const query = supabase
           .from("cart_items")
           .select(`
@@ -185,22 +213,11 @@ const CheckoutPage = () => {
               vendor_id,
               vendors(
                 id, 
-                store_name,
-                vendor_profiles(
-                  address,
-                  city,
-                  state
-                )
+                store_name
               )
             )
           `)
           .eq("customer_id", session.user.id)
-
-        // If vendorId is provided and is a valid string (not "null"), we need to filter by vendor
-        // Since vendor_id in cart_items is null, we need to filter through menu_items
-        if (vendorId && typeof vendorId === "string" && vendorId !== "null") {
-          // We'll filter after getting the data since we can't directly filter on nested relationships
-        }
 
         const { data, error } = await query
 
@@ -223,9 +240,6 @@ const CheckoutPage = () => {
             name: item.menu_items.name,
             vendor_id: item.menu_items.vendor_id || "",
             vendor_name: item.menu_items.vendors?.store_name || "Unknown Vendor",
-            vendor_address: item.menu_items.vendors?.vendor_profiles?.[0]?.address || "",
-            vendor_city: item.menu_items.vendors?.vendor_profiles?.[0]?.city || "",
-            vendor_state: item.menu_items.vendors?.vendor_profiles?.[0]?.state || "",
           }))
 
         // Filter by vendor if vendorId is provided
@@ -240,12 +254,39 @@ const CheckoutPage = () => {
         // Set vendor info if we have items
         if (transformedItems.length > 0) {
           const firstItem = transformedItems[0]
+          const firstVendorId = firstItem.vendor_id
+
+          // If we don't already have vendor info from the direct query above
+          if (!vendorName && firstVendorId) {
+            // Get vendor profile information for this vendor
+            const { data: vendorProfileData } = await supabase
+              .from("vendor_profiles")
+              .select("address, city, state")
+              .eq("vendor_id", firstVendorId)
+              .single()
+
+            if (vendorProfileData) {
+              vendorAddress = vendorProfileData.address || ""
+              vendorCity = vendorProfileData.city || ""
+              vendorState = vendorProfileData.state || ""
+              vendorName = firstItem.vendor_name
+            }
+          }
+
           setVendorInfo({
-            id: firstItem.vendor_id,
-            name: firstItem.vendor_name,
-            address: firstItem.vendor_address || "No address provided",
-            city: firstItem.vendor_city || "",
-            state: firstItem.vendor_state || "",
+            id: firstVendorId,
+            name: vendorName || firstItem.vendor_name,
+            address: vendorAddress,
+            city: vendorCity,
+            state: vendorState,
+          })
+
+          console.log("Vendor info set:", {
+            id: firstVendorId,
+            name: vendorName || firstItem.vendor_name,
+            address: vendorAddress,
+            city: vendorCity,
+            state: vendorState,
           })
         }
 
@@ -297,6 +338,13 @@ const CheckoutPage = () => {
           zipCode: deliveryAddress.zipCode,
         }
 
+        // Get vendor address
+        const vendorAddress: Address = {
+          address: vendorInfo.address,
+          city: vendorInfo.city,
+          state: vendorInfo.state,
+        }
+
         // In a real implementation, we would use a geocoding API
         // For now, we'll use our mock function
         let customerCoords: Coordinates
@@ -310,9 +358,8 @@ const CheckoutPage = () => {
         }
 
         if (!vendorCoordinates) {
-          // In a real implementation, we would fetch the vendor's coordinates from the database
-          // For now, we'll use our mock function
-          vendorCoords = getMockVendorCoordinates(vendorInfo.id)
+          // Use the vendor's actual address for geocoding
+          vendorCoords = await geocodeAddress(vendorAddress)
           setVendorCoordinates(vendorCoords)
         } else {
           vendorCoords = vendorCoordinates
