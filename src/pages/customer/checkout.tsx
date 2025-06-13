@@ -170,14 +170,13 @@ const CheckoutPage = () => {
             id,
             menu_item_id,
             quantity,
-            special_instructions,
             menu_items(
               id, 
               name, 
               price, 
               image_url, 
               vendor_id,
-              vendors(id, store_name, business_address, city, state)
+              vendors(id, store_name, business_address)
             )
           `)
           .eq("customer_id", session.user.id)
@@ -210,8 +209,6 @@ const CheckoutPage = () => {
             vendor_id: item.menu_items.vendor_id || "",
             vendor_name: item.menu_items.vendors?.store_name || "Unknown Vendor",
             vendor_address: item.menu_items.vendors?.business_address || "",
-            vendor_city: item.menu_items.vendors?.city || "",
-            vendor_state: item.menu_items.vendors?.state || "",
           }))
 
         // Filter by vendor if vendorId is provided
@@ -229,7 +226,7 @@ const CheckoutPage = () => {
           setVendorInfo({
             id: firstItem.vendor_id,
             name: firstItem.vendor_name,
-            address: `${firstItem.vendor_address}, ${firstItem.vendor_city}, ${firstItem.vendor_state}`,
+            address: firstItem.vendor_address || "No address provided",
           })
         }
 

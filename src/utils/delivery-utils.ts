@@ -99,12 +99,8 @@ export function formatDeliveryTime(minutes: number): string {
   return `${hours} hour${hours > 1 ? "s" : ""} ${remainingMinutes} minute${remainingMinutes > 1 ? "s" : ""}`
 }
 
-/**
- * Geocode an address to get coordinates
- * This is a placeholder function that would normally call a geocoding API
- * @param address Address to geocode
- * @returns Promise resolving to coordinates
- */
+// Update the geocodeAddress function to handle a single address string instead of separate city/state
+
 export async function geocodeAddress(address: Address): Promise<Coordinates> {
   // In a real implementation, this would call a geocoding API like Google Maps
   // For now, we'll return mock coordinates based on the address string
@@ -128,12 +124,8 @@ export async function geocodeAddress(address: Address): Promise<Coordinates> {
   return { lat, lng }
 }
 
-/**
- * Get mock vendor coordinates based on vendor ID
- * In a real implementation, this would fetch the vendor's address from the database
- * @param vendorId Vendor ID
- * @returns Mock coordinates
- */
+// Update the getMockVendorCoordinates function to handle a single address string
+
 export function getMockVendorCoordinates(vendorId: string): Coordinates {
   // Generate consistent coordinates based on vendor ID
   let hash = 0
