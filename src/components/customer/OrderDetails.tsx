@@ -1,5 +1,6 @@
-// components/customer/OrderDetails.tsx
-import { ShoppingBag } from 'lucide-react'
+"use client"
+
+import { ShoppingBag, Gift, Truck, Calculator } from "lucide-react"
 
 interface OrderItem {
   id: string
@@ -13,8 +14,14 @@ interface Order {
   id: string
   status: string
   total_amount: number
+  original_amount?: number
+  discount_amount?: number
+  delivery_fee?: number
+  distance_km?: number
+  loyalty_points_redeemed?: number
   items: OrderItem[]
   payment_method: string
+  payment_status?: string
 }
 
 interface OrderDetailsProps {
@@ -22,75 +29,144 @@ interface OrderDetailsProps {
 }
 
 const OrderDetails = ({ order }: OrderDetailsProps) => {
-  // Calculate subtotal
-  const subtotal = order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-  
-  // Estimate delivery fee and service fee
-  const deliveryFee = 500 // Default delivery fee
-  const serviceFee = Math.min(200 + (order.items.reduce((sum, item) => sum + item.quantity, 0) * 50), 500)
-  
+  // Calculate subtotal from items
+  const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+
+  // Get actual values from order or calculate fallbacks
+  const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0)
+
+  // Use actual delivery fee from order or calculate fallback
+  const deliveryFee = order.delivery_fee || 1000 // Default minimum delivery fee
+
+  // Calculate service fee (same logic as checkout)
+  const serviceFee = Math.min(300 + Math.max(0, totalItems - 1) * 135, 500)
+
   // Calculate VAT (7.5% in Nigeria)
   const vat = Math.round(subtotal * 0.075)
 
+  // Calculate what the total should be before discount
+  const calculatedTotal = subtotal + deliveryFee + serviceFee + vat
+
+  // Use original_amount if available, otherwise use calculated total
+  const originalAmount = order.original_amount || calculatedTotal
+
+  // Get discount information
+  const discountAmount = order.discount_amount || 0
+  const loyaltyPointsRedeemed = order.loyalty_points_redeemed || 0
+
+  // Final total should match order.total_amount
+  const finalTotal = order.total_amount
+
   return (
-    <div className="bg-white rounded-lg shadow-md border border-gray-100 p-6">
-      <h2 className="text-xl font-bold mb-4 flex items-center">
-        <ShoppingBag className="h-5 w-5 mr-2 text-red-500" />
+    <div className="bg-[#8f8578] rounded-lg shadow-md border border-[#1d2c36] p-6">
+      <h2 className="text-xl font-bold mb-4 flex items-center text-[#1d2c36]">
+        <ShoppingBag className="h-5 w-5 mr-2 text-[#1d2c36]" />
         Order Summary
       </h2>
 
-      <div className="mb-4">
-        <h3 className="font-medium text-gray-700 mb-2">Order Items</h3>
+      {/* Order Items */}
+      <div className="mb-6">
+        <h3 className="font-medium text-[#1d2c36] mb-3">Order Items</h3>
         <div className="space-y-3">
           {order.items.map((item) => (
-            <div key={item.id} className="flex justify-between items-center">
+            <div key={item.id} className="flex justify-between items-center py-2 border-b border-[#1d2c36]/20">
               <div className="flex items-center">
-                <span className="bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center mr-2">
+                <span className="bg-[#1d2c36] text-[#8f8578] rounded-full w-6 h-6 flex items-center justify-center mr-3 text-sm font-medium">
                   {item.quantity}
                 </span>
-                <span className="text-sm">{item.name}</span>
+                <span className="text-[#1d2c36] font-medium">{item.name}</span>
               </div>
-              <span className="text-sm font-medium">₦{(item.price * item.quantity).toLocaleString()}</span>
+              <span className="text-[#1d2c36] font-medium">₦{(item.price * item.quantity).toLocaleString()}</span>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="border-t border-gray-200 pt-4 space-y-2">
-        <div className="flex justify-between text-sm text-gray-600">
-          <span>Subtotal</span>
-          <span>₦{subtotal.toLocaleString()}</span>
+      {/* Order Breakdown */}
+      <div className="space-y-3 mb-6">
+        <div className="flex justify-between text-[#1d2c36]">
+          <span>Subtotal ({totalItems} items)</span>
+          <span className="font-medium">₦{subtotal.toLocaleString()}</span>
         </div>
-        <div className="flex justify-between text-sm text-gray-600">
-          <span>Delivery Fee</span>
-          <span>₦{deliveryFee.toLocaleString()}</span>
+
+        <div className="flex justify-between text-[#1d2c36]">
+          <span className="flex items-center">
+            <Truck className="h-4 w-4 mr-1" />
+            Delivery Fee
+            {order.distance_km && <span className="text-xs ml-1 opacity-75">({order.distance_km.toFixed(1)}km)</span>}
+          </span>
+          <span className="font-medium">₦{deliveryFee.toLocaleString()}</span>
         </div>
-        <div className="flex justify-between text-sm text-gray-600">
-          <span>Service Fee</span>
-          <span>₦{serviceFee.toLocaleString()}</span>
+
+        <div className="flex justify-between text-[#1d2c36]">
+          <span className="flex items-center">
+            <Calculator className="h-4 w-4 mr-1" />
+            Service Fee
+          </span>
+          <span className="font-medium">₦{serviceFee.toLocaleString()}</span>
         </div>
-        <div className="flex justify-between text-sm text-gray-600">
+
+        <div className="flex justify-between text-[#1d2c36]">
           <span>VAT (7.5%)</span>
-          <span>₦{vat.toLocaleString()}</span>
+          <span className="font-medium">₦{vat.toLocaleString()}</span>
         </div>
-        <div className="flex justify-between font-bold text-lg pt-2 border-t border-gray-200">
-          <span>Total</span>
-          <span>₦{order.total_amount.toLocaleString()}</span>
+
+        {/* Loyalty Discount */}
+        {discountAmount > 0 && (
+          <div className="flex justify-between text-[#b9c6c8] bg-[#1d2c36] p-3 rounded-lg">
+            <span className="flex items-center">
+              <Gift className="h-4 w-4 mr-1" />
+              Loyalty Discount ({loyaltyPointsRedeemed} pts)
+            </span>
+            <span className="font-medium">-₦{discountAmount.toLocaleString()}</span>
+          </div>
+        )}
+
+        {/* Total */}
+        <div className="border-t border-[#1d2c36] pt-3 mt-3">
+          <div className="flex justify-between font-bold text-lg text-[#1d2c36]">
+            <span>Total Paid</span>
+            <span>₦{finalTotal.toLocaleString()}</span>
+          </div>
+
+          {discountAmount > 0 && (
+            <div className="text-right text-sm mt-1 text-[#1d2c36] opacity-75">
+              You saved ₦{discountAmount.toLocaleString()}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="mt-4 pt-4 border-t border-gray-200">
+      {/* Payment Information */}
+      <div className="pt-4 border-t border-[#1d2c36] space-y-2">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Payment Method</span>
-          <span className="font-medium capitalize">{order.payment_method}</span>
+          <span className="text-[#1d2c36]">Payment Method</span>
+          <span className="font-medium text-[#1d2c36] capitalize">{order.payment_method}</span>
         </div>
-        <div className="flex justify-between text-sm mt-1">
-          <span className="text-gray-600">Payment Status</span>
-          <span className={`font-medium ${
-            order.status === 'cancelled' ? 'text-red-500' : 'text-green-500'
-          }`}>
-            {order.status === 'cancelled' ? 'Refunded' : 'Paid'}
+
+        <div className="flex justify-between text-sm">
+          <span className="text-[#1d2c36]">Payment Status</span>
+          <span
+            className={`font-medium ${
+              order.status === "cancelled"
+                ? "text-red-500"
+                : order.payment_status === "paid" || order.status === "delivered"
+                  ? "text-[#b9c6c8]"
+                  : "text-yellow-600"
+            }`}
+          >
+            {order.status === "cancelled"
+              ? "Refunded"
+              : order.payment_status === "paid" || order.status === "delivered"
+                ? "Paid"
+                : "Processing"}
           </span>
+        </div>
+
+        {/* Order ID for reference */}
+        <div className="flex justify-between text-sm pt-2 border-t border-[#1d2c36]/30">
+          <span className="text-[#1d2c36]">Order ID</span>
+          <span className="font-mono text-xs text-[#1d2c36] opacity-75">#{order.id.substring(0, 8)}</span>
         </div>
       </div>
     </div>
