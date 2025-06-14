@@ -12,7 +12,7 @@ import {
 // Constants for delivery fee calculation
 const BASE_FEE = 1000 // Base delivery fee in Naira (also minimum fee)
 const MIN_DELIVERY_FEE = 1000 // Minimum delivery fee
-const MAX_DELIVERY_FEE = 4000 // Maximum delivery fee
+const MAX_DELIVERY_FEE = 6500 // Maximum delivery fee
 const WITHIN_5KM_RATE = 150 // Fee per kilometer within 5km
 const BEYOND_5KM_RATE = 210 // Fee per kilometer beyond 5km
 const DISTANCE_THRESHOLD = 5 // Threshold in kilometers for higher rate

@@ -460,9 +460,12 @@ const CheckoutPage = () => {
         return
       }
 
+      console.log("Starting order creation process...")
+
       // Save user info if requested
       if (saveInfo) {
-        await supabase
+        console.log("Saving user info...")
+        const { error: updateError } = await supabase
           .from("customers")
           .update({
             name: contactInfo.fullName,
@@ -474,6 +477,11 @@ const CheckoutPage = () => {
             updated_at: new Date().toISOString(),
           })
           .eq("id", session.user.id)
+
+        if (updateError) {
+          console.error("Error updating customer info:", updateError)
+          // Continue with order creation even if customer update fails
+        }
       }
 
       // Determine vendor ID
@@ -481,12 +489,14 @@ const CheckoutPage = () => {
 
       if (typeof vendorId === "string" && vendorId !== "null" && vendorId.trim() !== "") {
         resolvedVendorId = vendorId
+        console.log("Using vendor ID from URL:", resolvedVendorId)
       } else if (cartItems.length > 0) {
         const itemWithVendor = cartItems.find(
           (item) => item.vendor_id && item.vendor_id !== "null" && item.vendor_id.trim() !== "",
         )
         if (itemWithVendor) {
           resolvedVendorId = itemWithVendor.vendor_id
+          console.log("Using vendor ID from cart item:", resolvedVendorId)
         }
       }
 
@@ -504,104 +514,184 @@ const CheckoutPage = () => {
         return
       }
 
+      console.log("Resolved vendor ID:", resolvedVendorId)
+
       const loyaltyPointsRedeemed = usePoints && customerProfile && customerProfile.loyalty_points >= 10 ? 10 : 0
       const discountAmount = pointsDiscount
+
+      console.log("Order details:", {
+        loyaltyPointsRedeemed,
+        discountAmount,
+        finalTotal,
+        total,
+        deliveryFee,
+        distance,
+      })
 
       const estimatedDeliveryTimeMinutes = estimatedTime || 30
       const now = new Date()
       const estimatedDeliveryTime = new Date(now.getTime() + estimatedDeliveryTimeMinutes * 60000)
 
+      // Prepare order data
+      const orderData = {
+        customer_id: session.user.id,
+        status: "pending",
+        total_amount: Math.round(finalTotal), // Ensure it's an integer
+        original_amount: Math.round(total), // Ensure it's an integer
+        discount_amount: Math.round(discountAmount), // Ensure it's an integer
+        delivery_fee: Math.round(deliveryFee), // Ensure it's an integer
+        distance_km: distance || 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        delivery_address: deliveryAddress.address,
+        delivery_city: deliveryAddress.city,
+        delivery_state: deliveryAddress.state,
+        delivery_zip: deliveryAddress.zipCode || null,
+        vendor_id: resolvedVendorId,
+        rider_id: null,
+        estimated_delivery_time: estimatedDeliveryTime.toISOString(),
+        payment_method: paymentMethod,
+        payment_status: "pending",
+        actual_delivery_time: null,
+        contact_number: contactInfo.phone,
+        special_instructions: deliveryAddress.instructions || null,
+        loyalty_points_redeemed: loyaltyPointsRedeemed,
+      }
+
+      console.log("Order data to insert:", orderData)
+
       // Create order in database
-      const { data: orderData, error: orderError } = await supabase
+      const { data: createdOrder, error: orderError } = await supabase
         .from("orders")
-        .insert({
-          customer_id: session.user.id,
-          status: "pending",
-          total_amount: finalTotal,
-          original_amount: total,
-          discount_amount: discountAmount,
-          delivery_fee: deliveryFee,
-          distance_km: distance || 0,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          delivery_address: deliveryAddress.address,
-          delivery_city: deliveryAddress.city,
-          delivery_state: deliveryAddress.state,
-          delivery_zip: deliveryAddress.zipCode,
-          vendor_id: resolvedVendorId,
-          rider_id: null,
-          estimated_delivery_time: estimatedDeliveryTime.toISOString(),
-          payment_method: paymentMethod,
-          payment_status: "pending",
-          actual_delivery_time: null,
-          contact_number: contactInfo.phone,
-          special_instructions: deliveryAddress.instructions || null,
-          loyalty_points_redeemed: loyaltyPointsRedeemed,
-        })
+        .insert(orderData)
         .select()
         .single()
 
-      if (orderError || !orderData) {
-        console.error("Error creating order:", orderError)
-        setPaymentError("Failed to create order. Please try again.")
+      if (orderError) {
+        console.error("Detailed order creation error:", orderError)
+        console.error("Error code:", orderError.code)
+        console.error("Error message:", orderError.message)
+        console.error("Error details:", orderError.details)
+        console.error("Error hint:", orderError.hint)
+
+        // Provide more specific error messages
+        let errorMessage = "Failed to create order. "
+        if (orderError.message.includes("violates foreign key constraint")) {
+          errorMessage += "Invalid vendor or customer reference."
+        } else if (orderError.message.includes("violates not-null constraint")) {
+          errorMessage += "Missing required information."
+        } else if (orderError.message.includes("violates check constraint")) {
+          errorMessage += "Invalid data values."
+        } else {
+          errorMessage += `Database error: ${orderError.message}`
+        }
+
+        setPaymentError(errorMessage)
         setIsProcessing(false)
         return
       }
 
+      if (!createdOrder) {
+        console.error("Order was created but no data returned")
+        setPaymentError("Order creation failed - no order data returned.")
+        setIsProcessing(false)
+        return
+      }
+
+      console.log("Order created successfully:", createdOrder)
+
       // Create order items
       const orderItems = cartItems.map((item) => ({
-        order_id: orderData.id,
+        order_id: createdOrder.id,
         menu_item_id: item.menu_item_id,
         quantity: item.quantity,
-        unit_price: item.price,
-        total_price: item.price * item.quantity,
+        unit_price: Math.round(item.price), // Ensure it's an integer
+        total_price: Math.round(item.price * item.quantity), // Ensure it's an integer
         special_instructions: "",
         created_at: new Date().toISOString(),
       }))
+
+      console.log("Order items to insert:", orderItems)
 
       const { error: itemsError } = await supabase.from("order_items").insert(orderItems)
 
       if (itemsError) {
         console.error("Error creating order items:", itemsError)
-        await supabase.from("orders").delete().eq("id", orderData.id)
-        setPaymentError("Failed to create order items. Please try again.")
+        console.error("Items error details:", itemsError.details)
+
+        // If order items creation fails, delete the order to avoid orphaned orders
+        await supabase.from("orders").delete().eq("id", createdOrder.id)
+
+        setPaymentError(`Failed to create order items: ${itemsError.message}`)
         setIsProcessing(false)
         return
       }
 
+      console.log("Order items created successfully")
+
       // Update loyalty points if redeemed
       if (loyaltyPointsRedeemed > 0 && customerProfile) {
         const newPointsBalance = customerProfile.loyalty_points - loyaltyPointsRedeemed
-        await supabase.from("customers").update({ loyalty_points: newPointsBalance }).eq("id", session.user.id)
+        console.log("Updating loyalty points:", customerProfile.loyalty_points, "->", newPointsBalance)
+
+        const { error: pointsError } = await supabase
+          .from("customers")
+          .update({ loyalty_points: newPointsBalance })
+          .eq("id", session.user.id)
+
+        if (pointsError) {
+          console.error("Error updating loyalty points:", pointsError)
+          // Continue with the order process even if points update fails
+        }
       }
 
       // Initialize payment with PayStack
+      console.log("Initializing payment...")
       const response = await fetch("/api/payments/initialize-order", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          orderId: orderData.id,
-          amount: finalTotal,
+          orderId: createdOrder.id,
+          amount: Math.round(finalTotal), // Ensure it's an integer
           email: contactInfo.email,
           metadata: {
-            order_id: orderData.id,
+            order_id: createdOrder.id,
             customer_id: session.user.id,
             delivery_address: deliveryAddress.address,
             loyalty_points_redeemed: loyaltyPointsRedeemed,
-            discount_amount: discountAmount,
-            delivery_fee: deliveryFee,
+            discount_amount: Math.round(discountAmount),
+            delivery_fee: Math.round(deliveryFee),
             distance_km: distance || 0,
           },
         }),
       })
 
+      if (!response.ok) {
+        console.error("Payment initialization failed with status:", response.status)
+        const errorText = await response.text()
+        console.error("Payment error response:", errorText)
+
+        // Clean up the order if payment initialization fails
+        await supabase.from("order_items").delete().eq("order_id", createdOrder.id)
+        await supabase.from("orders").delete().eq("id", createdOrder.id)
+
+        setPaymentError("Failed to initialize payment. Please try again.")
+        setIsProcessing(false)
+        return
+      }
+
       const paymentData = await response.json()
+      console.log("Payment initialization response:", paymentData)
 
       if (!paymentData.success) {
-        await supabase.from("order_items").delete().eq("order_id", orderData.id)
-        await supabase.from("orders").delete().eq("id", orderData.id)
+        console.error("Payment initialization unsuccessful:", paymentData)
+
+        // Clean up the order if payment initialization fails
+        await supabase.from("order_items").delete().eq("order_id", createdOrder.id)
+        await supabase.from("orders").delete().eq("id", createdOrder.id)
+
         setPaymentError(paymentData.error || "Failed to initialize payment")
         setIsProcessing(false)
         return
@@ -609,10 +699,21 @@ const CheckoutPage = () => {
 
       // Clear cart items
       if (resolvedVendorId) {
+        console.log("Clearing cart items...")
         const menuItemIds = cartItems.map((item) => item.menu_item_id)
-        await supabase.from("cart_items").delete().eq("customer_id", session.user.id).in("menu_item_id", menuItemIds)
+        const { error: clearCartError } = await supabase
+          .from("cart_items")
+          .delete()
+          .eq("customer_id", session.user.id)
+          .in("menu_item_id", menuItemIds)
+
+        if (clearCartError) {
+          console.error("Error clearing cart:", clearCartError)
+          // Don't fail the order for this
+        }
       }
 
+      console.log("Redirecting to payment page...")
       // Redirect to PayStack payment page
       window.location.href = paymentData.data.authorization_url
     } catch (error) {
