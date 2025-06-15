@@ -24,10 +24,10 @@ const TopProducts: React.FC<TopProductsProps> = ({ products }) => {
               key={product.id}
               className="flex items-center gap-4 p-3 rounded-lg bg-gradient-to-r from-[#b9c6c8]/5 to-transparent hover:from-[#b9c6c8]/10 transition-all duration-200"
             >
-              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] text-[#1d2c36] font-bold text-sm">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] text-[#1d2c36] font-bold text-sm flex-shrink-0">
                 {index + 1}
               </div>
-              <div className="relative w-12 h-12">
+              <div className="relative w-12 h-12 md:w-16 md:h-16 lg:w-20 lg:h-20 flex-shrink-0">
                 <Image
                   src={product.image || "/placeholder.svg"}
                   alt={product.name}
@@ -35,11 +35,13 @@ const TopProducts: React.FC<TopProductsProps> = ({ products }) => {
                   className="rounded-lg object-cover border border-[#b9c6c8]/20"
                 />
               </div>
-              <div className="flex-1">
-                <h4 className="text-[#b9c6c8] font-medium">{product.name}</h4>
-                <p className="text-[#8f8578] text-sm">{product.orders} orders</p>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-[#b9c6c8] font-medium text-sm md:text-base truncate">{product.name}</h4>
+                <p className="text-[#8f8578] text-xs md:text-sm">{product.orders} orders</p>
               </div>
-              <p className="text-[#b9c6c8] font-medium">₦{product.revenue.toLocaleString()}</p>
+              <div className="text-right flex-shrink-0">
+                <p className="text-[#b9c6c8] font-medium text-sm md:text-base">₦{product.revenue.toLocaleString()}</p>
+              </div>
             </div>
           ))
         ) : (
