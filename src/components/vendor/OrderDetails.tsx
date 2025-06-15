@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
+import { CheckCircle, AlertCircle, Clock, X } from "lucide-react"
 import type { Order, OrderStatus } from "./OrderManagement"
 import OrderReceipt from "./OrderReceipt"
 
@@ -10,6 +11,14 @@ interface OrderDetailsProps {
   onUpdateStatus: (orderId: string, newStatus: OrderStatus) => Promise<boolean>
   onUpdateEstimatedTime: (orderId: string, estimatedTime: string) => Promise<boolean>
   onRefresh: () => void
+}
+
+interface Notification {
+  id: string
+  type: "success" | "warning" | "info" | "error"
+  title: string
+  message: string
+  timestamp: Date
 }
 
 export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedTime, onRefresh }: OrderDetailsProps) {
@@ -23,6 +32,29 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
   const [timeAdjustmentCount, setTimeAdjustmentCount] = useState(0)
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
   const [timerActive, setTimerActive] = useState(false)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+
+  // Add notification function
+  const addNotification = (type: Notification["type"], title: string, message: string) => {
+    const notification: Notification = {
+      id: Date.now().toString(),
+      type,
+      title,
+      message,
+      timestamp: new Date(),
+    }
+    setNotifications((prev) => [notification, ...prev])
+
+    // Auto-remove notification after 5 seconds
+    setTimeout(() => {
+      removeNotification(notification.id)
+    }, 5000)
+  }
+
+  // Remove notification function
+  const removeNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((notification) => notification.id !== id))
+  }
 
   // Format date for display
   const formatDate = (dateString?: string) => {
@@ -89,7 +121,10 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
     try {
       const success = await onUpdateStatus(order.id, newStatus)
       if (success) {
+        addNotification("success", "Status Updated", `Order status has been changed to ${formatStatus(newStatus)}`)
         onRefresh()
+      } else {
+        addNotification("error", "Update Failed", "Failed to update order status. Please try again.")
       }
     } finally {
       setIsUpdating(false)
@@ -102,7 +137,11 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
 
     // Check if this is the second adjustment
     if (timeAdjustmentCount >= 1) {
-      alert("Time can only be adjusted once more. After this adjustment, the timer will countdown until it expires.")
+      addNotification(
+        "warning",
+        "Final Time Adjustment",
+        "This is your last time adjustment. After this, the timer will countdown until it expires.",
+      )
     }
 
     // Convert minutes to full datetime (now + minutes)
@@ -121,7 +160,15 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
         setTimeRemaining(remainingSeconds)
         setTimerActive(true)
 
+        addNotification(
+          "success",
+          "Timer Updated",
+          `Preparation time set to ${estimatedMinutes} minutes. Timer is now active.`,
+        )
+
         onRefresh()
+      } else {
+        addNotification("error", "Update Failed", "Failed to update estimated time. Please try again.")
       }
     } finally {
       setIsUpdating(false)
@@ -164,6 +211,11 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
         setTimeRemaining((prev) => {
           if (prev === null || prev <= 1) {
             setTimerActive(false)
+            addNotification(
+              "warning",
+              "Timer Expired",
+              "The estimated preparation time has expired. Please update the customer if needed.",
+            )
             return 0
           }
           return prev - 1
@@ -196,8 +248,71 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
     }
   }, [order.estimated_delivery_time, order.status])
 
+  // Get notification icon
+  const getNotificationIcon = (type: Notification["type"]) => {
+    switch (type) {
+      case "success":
+        return <CheckCircle className="h-5 w-5 text-green-500" />
+      case "error":
+        return <AlertCircle className="h-5 w-5 text-red-500" />
+      case "warning":
+        return <AlertCircle className="h-5 w-5 text-yellow-500" />
+      case "info":
+        return <Clock className="h-5 w-5 text-blue-500" />
+      default:
+        return <AlertCircle className="h-5 w-5 text-gray-500" />
+    }
+  }
+
+  // Get notification colors
+  const getNotificationColors = (type: Notification["type"]) => {
+    switch (type) {
+      case "success":
+        return "border-green-200 bg-green-50"
+      case "error":
+        return "border-red-200 bg-red-50"
+      case "warning":
+        return "border-yellow-200 bg-yellow-50"
+      case "info":
+        return "border-blue-200 bg-blue-50"
+      default:
+        return "border-gray-200 bg-gray-50"
+    }
+  }
+
   return (
-    <div className="p-6">
+    <div className="p-6 relative">
+      {/* Notification Container */}
+      {notifications.length > 0 && (
+        <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`border rounded-lg p-4 shadow-lg backdrop-blur-sm transition-all duration-300 ${getNotificationColors(
+                notification.type,
+              )}`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-start space-x-3">
+                  {getNotificationIcon(notification.type)}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-semibold text-gray-900">{notification.title}</h4>
+                    <p className="text-sm text-gray-700 mt-1">{notification.message}</p>
+                    <p className="text-xs text-gray-500 mt-2">{notification.timestamp.toLocaleTimeString()}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeNotification(notification.id)}
+                  className="ml-2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-8">
         <h2 className="text-2xl font-bold text-[#b9c6c8]">Order #{order.order_code}</h2>
         <div className="flex items-center gap-2">
@@ -358,7 +473,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
 
               {/* Timer Status and Adjustment Info */}
               <div className="text-xs text-[#8f8578] space-y-1">
-                <p>Current: {formatTime(order.estimated_delivery_time)} | Range: 1-1440 minutes</p>
+                <p>Current: {formatTime(order.estimated_delivery_time)} | Range: You have a minimum of 1 minute, and a maximum of 24 minutes for your orders!</p>
                 <p>
                   Time adjustments: {timeAdjustmentCount}/2
                   {timeAdjustmentCount === 0 && " (You can adjust the time twice)"}
