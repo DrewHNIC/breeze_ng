@@ -1,22 +1,20 @@
-// components/vendor/AdPackages.tsx
-import React, { useState, useEffect } from "react"
-import { supabase } from "@/utils/supabase"
-import { Advertisement } from "@/types/advertisement"
-import { CheckCircle, Loader, Star, ShieldCheck, Rocket } from "lucide-react"
-import { useRouter } from "next/router"
-import { motion } from "framer-motion"
+"use client"
 
-// 🔥 Define Available Advertisement Packages
+import type React from "react"
+
+import { useState, useEffect } from "react"
+import { supabase } from "@/utils/supabase"
+import type { Advertisement } from "@/types/advertisement"
+import { CheckCircle, Loader, Star, Rocket } from "lucide-react"
+import { useRouter } from "next/router"
+
+// Define Available Advertisement Packages
 const adPackages = [
   {
     name: "Basic Boost",
     price: 2400,
     description: "Perfect for new stores looking to gain visibility.",
-    features: [
-      "Appears in recommended listings",
-      "Slight priority in search results",
-      "Basic analytics dashboard",
-    ],
+    features: ["Appears in recommended listings", "Slight priority in search results", "Basic analytics dashboard"],
   },
   {
     name: "Visibility Plus",
@@ -81,7 +79,9 @@ const AdPackages: React.FC<AdPackagesProps> = ({ activeAd, onPurchase }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
         if (session) {
           setUserId(session.user.id)
         } else {
@@ -131,60 +131,45 @@ const AdPackages: React.FC<AdPackagesProps> = ({ activeAd, onPurchase }) => {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      
-      {/* 🔥 Banner Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="bg-gradient-to-r from-red-600 to-red-800 rounded-xl shadow-xl p-8 text-white text-center"
-      >
-        <h2 className="text-3xl font-bold flex items-center justify-center gap-2">
+    <div className="space-y-6">
+      {/* Banner Header */}
+      <div className="bg-gradient-to-br from-[#1d2c36] to-[#243642] rounded-xl shadow-xl p-8 text-center border border-[#b9c6c8]/20">
+        <h2 className="text-3xl font-bold flex items-center justify-center gap-2 text-[#b9c6c8]">
           <Rocket className="w-8 h-8" /> Boost Your Store!
         </h2>
-        <p className="text-gray-300 max-w-3xl mx-auto mt-2">
-          Select an **advertisement package** to **increase visibility** and **attract more customers**.
+        <p className="text-[#8f8578] max-w-3xl mx-auto mt-2">
+          Select an <strong>advertisement package</strong> to <strong>increase visibility</strong> and{" "}
+          <strong>attract more customers</strong>.
         </p>
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mt-4"
-          >
-            {error}
-          </motion.div>
-        )}
-      </motion.div>
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mt-4">{error}</div>}
+      </div>
 
-      {/* 💎 Ad Package Grid */}
+      {/* Ad Package Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {adPackages.map((pkg) => (
-          <motion.div
+          <div
             key={pkg.name}
-            whileHover={{ scale: 1.05 }}
-            transition={{ duration: 0.3 }}
-            className={`relative bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden p-6 border-2 ${
-              pkg.highlight ? "border-red-500" : "border-gray-200 dark:border-gray-700"
+            className={`relative bg-gradient-to-br from-[#1d2c36] to-[#243642] rounded-xl shadow-lg overflow-hidden p-6 border-2 transition-all duration-200 hover:scale-105 ${
+              pkg.highlight ? "border-[#b9c6c8]" : "border-[#b9c6c8]/20"
             }`}
           >
             {pkg.highlight && (
-              <div className="absolute top-0 right-0 bg-red-500 text-white px-3 py-1 text-xs font-bold">
+              <div className="absolute top-0 right-0 bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] text-[#1d2c36] px-3 py-1 text-xs font-bold">
                 <Star className="w-4 h-4 inline-block mr-1" />
                 BEST VALUE
               </div>
             )}
 
-            <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">{pkg.name}</h3>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">{pkg.description}</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white mb-1">₦{pkg.price.toLocaleString()}</p>
-            <p className="text-sm text-gray-500 mb-4">per day</p>
+            <h3 className="text-xl font-bold mb-2 text-[#b9c6c8]">{pkg.name}</h3>
+            <p className="text-[#8f8578] text-sm mb-4">{pkg.description}</p>
+            <p className="text-3xl font-bold text-[#b9c6c8] mb-1">₦{pkg.price.toLocaleString()}</p>
+            <p className="text-sm text-[#8f8578] mb-4">per day</p>
 
             <ul className="mb-6 space-y-2">
               {pkg.features.map((feature, index) => (
                 <li key={index} className="flex items-start text-sm">
-                  <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                  {feature}
+                  <CheckCircle className="w-4 h-4 text-green-400 mr-2 flex-shrink-0 mt-0.5" />
+                  <span className="text-[#8f8578]">{feature}</span>
                 </li>
               ))}
             </ul>
@@ -198,10 +183,10 @@ const AdPackages: React.FC<AdPackagesProps> = ({ activeAd, onPurchase }) => {
                 }
               }}
               disabled={activeAd !== null || isLoading || selectedPackage === pkg.name}
-              className={`w-full py-3 px-4 rounded-lg font-medium transition-all ${
+              className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
                 activeAd === null && !isLoading
-                  ? "bg-red-500 text-white hover:bg-red-600"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  ? "bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] text-[#1d2c36] hover:from-[#8f8578] hover:to-[#b9c6c8]"
+                  : "bg-[#8f8578]/50 text-[#8f8578] cursor-not-allowed"
               }`}
             >
               {selectedPackage === pkg.name ? (
@@ -215,10 +200,10 @@ const AdPackages: React.FC<AdPackagesProps> = ({ activeAd, onPurchase }) => {
                 "Active Plan"
               )}
             </button>
-          </motion.div>
+          </div>
         ))}
       </div>
-    </motion.div>
+    </div>
   )
 }
 
