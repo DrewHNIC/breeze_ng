@@ -1,96 +1,239 @@
-import { useEffect, useState } from 'react';
-import { supabase } from '@/utils/supabase';
-import { Order } from './OrderManagement';
+"use client"
+
+import { useState, useEffect } from "react"
+import { supabase } from "@/utils/supabase"
+import { Bell, X } from "lucide-react"
 
 interface OrderNotificationsProps {
-  onNewOrder: () => void;
+  onNewOrder: () => void
+}
+
+interface Notification {
+  id: string
+  message: string
+  type: "new_order" | "status_update" | "payment"
+  timestamp: string
+  read: boolean
 }
 
 export default function OrderNotifications({ onNewOrder }: OrderNotificationsProps) {
-  const [notification, setNotification] = useState<{
-    show: boolean;
-    message: string;
-  }>({
-    show: false,
-    message: '',
-  });
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [showNotifications, setShowNotifications] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
-    let timeout: NodeJS.Timeout;
-    
     // Set up real-time subscription for new orders
     const setupSubscription = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        
-        const vendorId = session.user.id;
-        
-        // Subscribe to new orders for this vendor
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        if (!session) return
+
+        const vendorId = session.user.id
+
         const subscription = supabase
-          .channel('orders-channel')
+          .channel("order-notifications")
           .on(
-            'postgres_changes',
+            "postgres_changes",
             {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'orders',
+              event: "INSERT",
+              schema: "public",
+              table: "orders",
               filter: `vendor_id=eq.${vendorId}`,
             },
             (payload) => {
-              // Show notification
-              setNotification({
-                show: true,
-                message: 'New order received!',
-              });
-              
-              // Trigger refresh
-              onNewOrder();
-              
-              // Hide notification after 5 seconds
-              clearTimeout(timeout);
-              timeout = setTimeout(() => {
-                setNotification(prev => ({ ...prev, show: false }));
-              }, 5000);
-            }
-          )
-          .subscribe();
-          
-        // Clean up subscription
-        return () => {
-          supabase.removeChannel(subscription);
-          clearTimeout(timeout);
-        };
-      } catch (error) {
-        console.error('Error setting up real-time subscription:', error);
-      }
-    };
-    
-    setupSubscription();
-    
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [onNewOrder]);
+              // Add new order notification
+              const newNotification: Notification = {
+                id: `new-order-${payload.new.id}`,
+                message: `New order received from ${payload.new.customer_name || "Customer"}`,
+                type: "new_order",
+                timestamp: new Date().toISOString(),
+                read: false,
+              }
 
-  if (!notification.show) {
-    return null;
+              setNotifications((prev) => [newNotification, ...prev])
+              setUnreadCount((prev) => prev + 1)
+              onNewOrder()
+
+              // Show browser notification if permission granted
+              if (Notification.permission === "granted") {
+                new Notification("New Order Received!", {
+                  body: newNotification.message,
+                  icon: "/favicon.ico",
+                })
+              }
+            },
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "orders",
+              filter: `vendor_id=eq.${vendorId}`,
+            },
+            (payload) => {
+              // Add status update notification
+              const statusNotification: Notification = {
+                id: `status-update-${payload.new.id}-${Date.now()}`,
+                message: `Order status updated to ${payload.new.status}`,
+                type: "status_update",
+                timestamp: new Date().toISOString(),
+                read: false,
+              }
+
+              setNotifications((prev) => [statusNotification, ...prev])
+              setUnreadCount((prev) => prev + 1)
+            },
+          )
+          .subscribe()
+
+        return () => {
+          supabase.removeChannel(subscription)
+        }
+      } catch (error) {
+        console.error("Error setting up notifications:", error)
+      }
+    }
+
+    setupSubscription()
+
+    // Request notification permission
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission()
+    }
+  }, [onNewOrder])
+
+  const markAsRead = (notificationId: string) => {
+    setNotifications((prev) =>
+      prev.map((notification) => (notification.id === notificationId ? { ...notification, read: true } : notification)),
+    )
+    setUnreadCount((prev) => Math.max(0, prev - 1))
+  }
+
+  const markAllAsRead = () => {
+    setNotifications((prev) => prev.map((notification) => ({ ...notification, read: true })))
+    setUnreadCount(0)
+  }
+
+  const removeNotification = (notificationId: string) => {
+    const notification = notifications.find((n) => n.id === notificationId)
+    if (notification && !notification.read) {
+      setUnreadCount((prev) => Math.max(0, prev - 1))
+    }
+    setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
+  }
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
+
+    if (diffInMinutes < 1) return "Just now"
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`
+    return date.toLocaleDateString()
+  }
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case "new_order":
+        return "🛒"
+      case "status_update":
+        return "📋"
+      case "payment":
+        return "💳"
+      default:
+        return "📢"
+    }
   }
 
   return (
-    <div className="fixed bottom-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg shadow-lg z-50 animate-bounce">
-      <div className="flex items-center">
-        <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-        </svg>
-        <p>{notification.message}</p>
-      </div>
+    <div className="relative">
+      {/* Notification Bell */}
       <button
-        className="absolute top-0 right-0 mt-1 mr-1 text-green-700 hover:text-green-900"
-        onClick={() => setNotification(prev => ({ ...prev, show: false }))}
+        onClick={() => setShowNotifications(!showNotifications)}
+        className="relative p-2 text-[#8f8578] hover:text-[#b9c6c8] transition-colors duration-200"
       >
-        <span className="text-xl">&times;</span>
+        <Bell className="h-6 w-6" />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
       </button>
+
+      {/* Notifications Dropdown */}
+      {showNotifications && (
+        <div className="absolute right-0 top-full mt-2 w-80 bg-gradient-to-br from-[#1d2c36] to-[#243642] border border-[#b9c6c8]/20 rounded-lg shadow-lg z-50 max-h-96 overflow-hidden">
+          <div className="p-4 border-b border-[#b9c6c8]/20">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-[#b9c6c8]">Notifications</h3>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    onClick={markAllAsRead}
+                    className="text-xs text-[#8f8578] hover:text-[#b9c6c8] transition-colors"
+                  >
+                    Mark all read
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowNotifications(false)}
+                  className="text-[#8f8578] hover:text-[#b9c6c8] transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="max-h-64 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="p-4 text-center text-[#8f8578]">No notifications yet</div>
+            ) : (
+              notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-3 border-b border-[#b9c6c8]/10 hover:bg-gradient-to-r hover:from-[#b9c6c8]/10 hover:to-transparent transition-all duration-200 ${
+                    !notification.read ? "bg-gradient-to-r from-[#b9c6c8]/5 to-transparent" : ""
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-2 flex-1">
+                      <span className="text-lg">{getNotificationIcon(notification.type)}</span>
+                      <div className="flex-1">
+                        <p
+                          className={`text-sm ${!notification.read ? "text-[#b9c6c8] font-medium" : "text-[#8f8578]"}`}
+                        >
+                          {notification.message}
+                        </p>
+                        <p className="text-xs text-[#8f8578] mt-1">{formatTime(notification.timestamp)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {!notification.read && (
+                        <button
+                          onClick={() => markAsRead(notification.id)}
+                          className="w-2 h-2 bg-[#b9c6c8] rounded-full"
+                          title="Mark as read"
+                        />
+                      )}
+                      <button
+                        onClick={() => removeNotification(notification.id)}
+                        className="text-[#8f8578] hover:text-red-400 transition-colors"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
-  );
+  )
 }
