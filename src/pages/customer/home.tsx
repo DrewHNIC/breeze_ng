@@ -191,7 +191,7 @@ const CustomerHome = () => {
                   <div>
                     <p className="font-medium text-yellow-800">You have {profile.loyalty_points} loyalty points!</p>
                     <p className="text-sm text-yellow-700">
-                      You can redeem 5 points for a 50% discount on your next order.
+                      You can redeem 10 points for a 50% discount on your next order. Each order gets you a point!
                     </p>
                   </div>
                 </div>
