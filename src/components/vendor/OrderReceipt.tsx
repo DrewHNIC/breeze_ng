@@ -187,7 +187,7 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
   // Calculate service fee (2.5%)
   const calculateServiceFee = () => {
     const subtotal = calculateSubtotal()
-    return subtotal * 0.025
+    return subtotal * 0.045
   }
 
   return (
