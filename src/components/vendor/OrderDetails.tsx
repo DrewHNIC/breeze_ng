@@ -338,11 +338,11 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
         <div className="space-y-3">
           <div className="flex justify-between text-[#8f8578]">
             <span>Subtotal:</span>
-            <span>₦{calculateSubtotal().toLocaleString()}</span>
+            <span>₦{(calculateSubtotal() || 0).toLocaleString()}</span>
           </div>
           <div className="flex justify-between text-[#8f8578]">
             <span>Delivery Fee:</span>
-            <span>₦{calculateDeliveryFee().toLocaleString()}</span>
+            <span>₦{(calculateDeliveryFee() || 0).toLocaleString()}</span>
           </div>
           <div className="border-t border-[#b9c6c8]/20 pt-3 mt-3 flex justify-between font-bold text-[#b9c6c8] text-lg">
             <span>Total:</span>

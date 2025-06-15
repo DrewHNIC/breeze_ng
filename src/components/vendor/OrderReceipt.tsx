@@ -159,7 +159,7 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
   // Calculate subtotal
   const calculateSubtotal = () => {
     if (!order.items || order.items.length === 0) return 0
-    return order.items.reduce((sum, item) => sum + item.price_per_item * item.quantity, 0)
+    return order.items.reduce((sum, item) => sum + (item.price_per_item || 0) * (item.quantity || 0), 0)
   }
 
   // Calculate delivery fee
@@ -245,9 +245,9 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
                 </div>
                 <div className="item-detail">
                   <span>
-                    {item.quantity} x ₦{item.price_per_item.toLocaleString()}
+                    {item.quantity} x ₦{(item.price_per_item || 0).toLocaleString()}
                   </span>
-                  <span>₦{(item.quantity * item.price_per_item).toLocaleString()}</span>
+                  <span>₦{((item.quantity || 0) * (item.price_per_item || 0)).toLocaleString()}</span>
                 </div>
                 {item.special_requests && (
                   <div className="item-detail">
@@ -262,19 +262,19 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
           <div className="pricing">
             <div className="item">
               <span>Subtotal:</span>
-              <span>₦{calculateSubtotal().toLocaleString()}</span>
+              <span>₦{(calculateSubtotal() || 0).toLocaleString()}</span>
             </div>
             <div className="item">
               <span>Delivery Fee:</span>
-              <span>₦{calculateDeliveryFee().toLocaleString()}</span>
+              <span>₦{(calculateDeliveryFee() || 0).toLocaleString()}</span>
             </div>
             <div className="item">
               <span>VAT (7.5%):</span>
-              <span>₦{Math.round(calculateVAT()).toLocaleString()}</span>
+              <span>₦{(Math.round(calculateVAT()) || 0).toLocaleString()}</span>
             </div>
             <div className="item">
               <span>Service Fee (2.5%):</span>
-              <span>₦{Math.round(calculateServiceFee()).toLocaleString()}</span>
+              <span>₦{(Math.round(calculateServiceFee()) || 0).toLocaleString()}</span>
             </div>
             <div className="total">
               <span>Total:</span>
