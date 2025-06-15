@@ -108,8 +108,8 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
   const calculateSubtotal = () => {
     if (!order.items || order.items.length === 0) return 0
     return order.items.reduce((sum, item) => {
-      const price = item.price_per_item || 0
-      const quantity = item.quantity || 0
+      const price = Number(item.price_per_item) || 0
+      const quantity = Number(item.quantity) || 0
       return sum + price * quantity
     }, 0)
   }
@@ -261,74 +261,127 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
         {!order.items || order.items.length === 0 ? (
           <p className="text-[#8f8578]">No items found for this order</p>
         ) : (
-          <div className="border border-[#b9c6c8]/20 rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-[#b9c6c8]/20">
-                <thead className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
-                    >
-                      Item
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
-                    >
-                      Quantity
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
-                    >
-                      Price
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
-                    >
-                      Total
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-gradient-to-r from-[#1d2c36] to-[#243642] divide-y divide-[#b9c6c8]/10">
-                  {order.items.map((item) => (
-                    <tr key={item.id}>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          {item.image_url && (
-                            <div className="flex-shrink-0 h-12 w-12 mr-4">
-                              <Image
-                                src={item.image_url || "/placeholder.svg"}
-                                alt={item.menu_item_name}
-                                width={48}
-                                height={48}
-                                className="rounded-md object-cover"
-                              />
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <div className="font-medium text-[#b9c6c8] text-sm md:text-base">{item.menu_item_name}</div>
-                            {item.special_requests && (
-                              <div className="text-xs text-[#8f8578] mt-1">Note: {item.special_requests}</div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8f8578]">{item.quantity}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b9c6c8]">
-                        ₦{(item.price_per_item || 0).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b9c6c8] font-medium">
-                        ₦{((item.quantity || 0) * (item.price_per_item || 0)).toLocaleString()}
-                      </td>
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block border border-[#b9c6c8]/20 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-[#b9c6c8]/20">
+                  <thead className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent">
+                    <tr>
+                      <th
+                        scope="col"
+                        className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                      >
+                        Item
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                      >
+                        Quantity
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                      >
+                        Price
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                      >
+                        Total
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-gradient-to-r from-[#1d2c36] to-[#243642] divide-y divide-[#b9c6c8]/10">
+                    {order.items.map((item) => (
+                      <tr key={item.id}>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            {item.image_url && (
+                              <div className="flex-shrink-0 h-12 w-12 mr-4">
+                                <Image
+                                  src={item.image_url || "/placeholder.svg"}
+                                  alt={item.menu_item_name}
+                                  width={48}
+                                  height={48}
+                                  className="rounded-md object-cover"
+                                />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <div className="font-medium text-[#b9c6c8] text-sm md:text-base">
+                                {item.menu_item_name}
+                              </div>
+                              {item.special_requests && (
+                                <div className="text-xs text-[#8f8578] mt-1">Note: {item.special_requests}</div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8f8578]">{item.quantity}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b9c6c8]">
+                          ₦{(Number(item.price_per_item) || 0).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b9c6c8] font-medium">
+                          ₦{((Number(item.quantity) || 0) * (Number(item.price_per_item) || 0)).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4">
+              {order.items.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent p-4 rounded-lg border border-[#b9c6c8]/20"
+                >
+                  <div className="flex items-start gap-3">
+                    {item.image_url && (
+                      <div className="flex-shrink-0 h-16 w-16">
+                        <Image
+                          src={item.image_url || "/placeholder.svg"}
+                          alt={item.menu_item_name}
+                          width={64}
+                          height={64}
+                          className="rounded-md object-cover"
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-[#b9c6c8] text-base mb-2">{item.menu_item_name}</h4>
+                      {item.special_requests && (
+                        <p className="text-xs text-[#8f8578] mb-2">Note: {item.special_requests}</p>
+                      )}
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div>
+                          <span className="text-[#8f8578] block">Quantity</span>
+                          <span className="text-[#b9c6c8] font-medium">{item.quantity}</span>
+                        </div>
+                        <div>
+                          <span className="text-[#8f8578] block">Price</span>
+                          <span className="text-[#b9c6c8] font-medium">
+                            ₦{(Number(item.price_per_item) || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[#8f8578] block">Total</span>
+                          <span className="text-[#b9c6c8] font-medium">
+                            ₦{((Number(item.quantity) || 0) * (Number(item.price_per_item) || 0)).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 

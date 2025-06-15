@@ -159,10 +159,14 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
   // Calculate subtotal
   const calculateSubtotal = () => {
     if (!order.items || order.items.length === 0) return 0
-    return order.items.reduce((sum, item) => sum + (item.price_per_item || 0) * (item.quantity || 0), 0)
+    return order.items.reduce((sum, item) => {
+      const price = Number(item.price_per_item) || 0
+      const quantity = Number(item.quantity) || 0
+      return sum + price * quantity
+    }, 0)
   }
 
-  // Calculate delivery fee
+  // Calculate delivery fee - use the same logic as in OrderDetails
   const calculateDeliveryFee = () => {
     const subtotal = calculateSubtotal()
     const fee = subtotal * 0.1
@@ -179,6 +183,15 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
   const calculateServiceFee = () => {
     const subtotal = calculateSubtotal()
     return subtotal * 0.025
+  }
+
+  // Debug: Log the order data to see what we're working with
+  console.log("Order data for receipt:", order)
+  console.log("Order items:", order.items)
+  if (order.items && order.items.length > 0) {
+    console.log("First item:", order.items[0])
+    console.log("Price per item:", order.items[0].price_per_item, typeof order.items[0].price_per_item)
+    console.log("Quantity:", order.items[0].quantity, typeof order.items[0].quantity)
   }
 
   return (
@@ -245,9 +258,9 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
                 </div>
                 <div className="item-detail">
                   <span>
-                    {item.quantity} x ₦{(item.price_per_item || 0).toLocaleString()}
+                    {item.quantity} x ₦{(Number(item.price_per_item) || 0).toLocaleString()}
                   </span>
-                  <span>₦{((item.quantity || 0) * (item.price_per_item || 0)).toLocaleString()}</span>
+                  <span>₦{((Number(item.quantity) || 0) * (Number(item.price_per_item) || 0)).toLocaleString()}</span>
                 </div>
                 {item.special_requests && (
                   <div className="item-detail">
