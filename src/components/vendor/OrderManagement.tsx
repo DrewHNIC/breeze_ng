@@ -38,6 +38,7 @@ export interface Order {
   actual_delivery_time?: string
   payment_method: string
   payment_status: string
+  delivery_fee?: number
   items?: OrderItem[]
 }
 
@@ -134,6 +135,7 @@ export default function OrderManagement() {
           actual_delivery_time: order.actual_delivery_time,
           payment_method: order.payment_method,
           payment_status: order.payment_status,
+          delivery_fee: order.delivery_fee,
         }))
 
         // Filter by search query if provided
@@ -183,8 +185,8 @@ export default function OrderManagement() {
           menu_item_id: item.menu_item_id,
           menu_item_name: item.menu_items?.name || "Unknown Item",
           quantity: item.quantity,
-          price_per_item: item.price_per_item,
-          special_requests: item.special_requests,
+          price_per_item: item.unit_price || item.price || 0, // Use unit_price from database
+          special_requests: item.special_instructions,
           image_url: item.menu_items?.image_url,
         }))
 

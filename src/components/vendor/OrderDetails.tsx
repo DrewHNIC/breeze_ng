@@ -108,14 +108,19 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
   const calculateSubtotal = () => {
     if (!order.items || order.items.length === 0) return 0
     return order.items.reduce((sum, item) => {
-      const price = Number(item.price_per_item) || 0
-      const quantity = Number(item.quantity) || 0
+      const price = item.price_per_item || 0
+      const quantity = item.quantity || 0
       return sum + price * quantity
     }, 0)
   }
 
-  // Calculate delivery fee (assuming 10% of subtotal with min ₦200 and max ₦1000)
+  // Calculate delivery fee - use actual delivery fee if available
   const calculateDeliveryFee = () => {
+    // If we have delivery fee in the order data, use it
+    if (order.delivery_fee && order.delivery_fee > 0) {
+      return order.delivery_fee
+    }
+    // Otherwise calculate based on subtotal
     const subtotal = calculateSubtotal()
     const fee = subtotal * 0.1
     return Math.min(Math.max(fee, 200), 1000)
@@ -261,34 +266,37 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
         {!order.items || order.items.length === 0 ? (
           <p className="text-[#8f8578]">No items found for this order</p>
         ) : (
-          <>
-            {/* Desktop Table View */}
-            <div className="hidden md:block border border-[#b9c6c8]/20 rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-[#b9c6c8]/20">
+          <div className="border border-[#b9c6c8]/20 rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <div className="min-w-full">
+                <table className="w-full divide-y divide-[#b9c6c8]/20" style={{ minWidth: "600px" }}>
                   <thead className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent">
                     <tr>
                       <th
                         scope="col"
-                        className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                        className="px-4 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                        style={{ minWidth: "200px" }}
                       >
                         Item
                       </th>
                       <th
                         scope="col"
-                        className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                        className="px-4 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                        style={{ minWidth: "80px" }}
                       >
                         Quantity
                       </th>
                       <th
                         scope="col"
-                        className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                        className="px-4 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                        style={{ minWidth: "100px" }}
                       >
                         Price
                       </th>
                       <th
                         scope="col"
-                        className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                        className="px-4 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                        style={{ minWidth: "120px" }}
                       >
                         Total
                       </th>
@@ -297,7 +305,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
                   <tbody className="bg-gradient-to-r from-[#1d2c36] to-[#243642] divide-y divide-[#b9c6c8]/10">
                     {order.items.map((item) => (
                       <tr key={item.id}>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4" style={{ minWidth: "200px" }}>
                           <div className="flex items-center">
                             {item.image_url && (
                               <div className="flex-shrink-0 h-12 w-12 mr-4">
@@ -311,21 +319,27 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
                               </div>
                             )}
                             <div className="min-w-0">
-                              <div className="font-medium text-[#b9c6c8] text-sm md:text-base">
-                                {item.menu_item_name}
-                              </div>
+                              <div className="font-medium text-[#b9c6c8] text-sm">{item.menu_item_name}</div>
                               {item.special_requests && (
                                 <div className="text-xs text-[#8f8578] mt-1">Note: {item.special_requests}</div>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8f8578]">{item.quantity}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b9c6c8]">
-                          ₦{(Number(item.price_per_item) || 0).toLocaleString()}
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-[#8f8578]" style={{ minWidth: "80px" }}>
+                          {item.quantity}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b9c6c8] font-medium">
-                          ₦{((Number(item.quantity) || 0) * (Number(item.price_per_item) || 0)).toLocaleString()}
+                        <td
+                          className="px-4 py-4 whitespace-nowrap text-sm text-[#b9c6c8]"
+                          style={{ minWidth: "100px" }}
+                        >
+                          ₦{(item.price_per_item || 0).toLocaleString()}
+                        </td>
+                        <td
+                          className="px-4 py-4 whitespace-nowrap text-sm text-[#b9c6c8] font-medium"
+                          style={{ minWidth: "120px" }}
+                        >
+                          ₦{((item.quantity || 0) * (item.price_per_item || 0)).toLocaleString()}
                         </td>
                       </tr>
                     ))}
@@ -333,55 +347,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
                 </table>
               </div>
             </div>
-
-            {/* Mobile Card View */}
-            <div className="md:hidden space-y-4">
-              {order.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent p-4 rounded-lg border border-[#b9c6c8]/20"
-                >
-                  <div className="flex items-start gap-3">
-                    {item.image_url && (
-                      <div className="flex-shrink-0 h-16 w-16">
-                        <Image
-                          src={item.image_url || "/placeholder.svg"}
-                          alt={item.menu_item_name}
-                          width={64}
-                          height={64}
-                          className="rounded-md object-cover"
-                        />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-[#b9c6c8] text-base mb-2">{item.menu_item_name}</h4>
-                      {item.special_requests && (
-                        <p className="text-xs text-[#8f8578] mb-2">Note: {item.special_requests}</p>
-                      )}
-                      <div className="grid grid-cols-3 gap-2 text-sm">
-                        <div>
-                          <span className="text-[#8f8578] block">Quantity</span>
-                          <span className="text-[#b9c6c8] font-medium">{item.quantity}</span>
-                        </div>
-                        <div>
-                          <span className="text-[#8f8578] block">Price</span>
-                          <span className="text-[#b9c6c8] font-medium">
-                            ₦{(Number(item.price_per_item) || 0).toLocaleString()}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[#8f8578] block">Total</span>
-                          <span className="text-[#b9c6c8] font-medium">
-                            ₦{((Number(item.quantity) || 0) * (Number(item.price_per_item) || 0)).toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -391,11 +357,11 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
         <div className="space-y-3">
           <div className="flex justify-between text-[#8f8578]">
             <span>Subtotal:</span>
-            <span>₦{(calculateSubtotal() || 0).toLocaleString()}</span>
+            <span>₦{Math.round(calculateSubtotal()).toLocaleString()}</span>
           </div>
           <div className="flex justify-between text-[#8f8578]">
             <span>Delivery Fee:</span>
-            <span>₦{(calculateDeliveryFee() || 0).toLocaleString()}</span>
+            <span>₦{Math.round(calculateDeliveryFee()).toLocaleString()}</span>
           </div>
           <div className="border-t border-[#b9c6c8]/20 pt-3 mt-3 flex justify-between font-bold text-[#b9c6c8] text-lg">
             <span>Total:</span>
