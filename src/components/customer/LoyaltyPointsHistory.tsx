@@ -16,7 +16,6 @@ export default function LoyaltyPointsHistory({ customerId }: { customerId: strin
   const [history, setHistory] = useState<PointsHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<any>(null)
 
   useEffect(() => {
     const fetchPointsHistory = async () => {
@@ -26,7 +25,6 @@ export default function LoyaltyPointsHistory({ customerId }: { customerId: strin
       try {
         console.log("Fetching points history for customer:", customerId)
 
-        // Fetch all orders for this customer to calculate points
         const { data: allOrders, error: allOrdersError } = await supabase
           .from("orders")
           .select("id, created_at, loyalty_points_redeemed")
@@ -40,23 +38,17 @@ export default function LoyaltyPointsHistory({ customerId }: { customerId: strin
           return
         }
 
-        console.log("All orders data:", allOrders)
-
-        // Process orders to create history items
         const historyItems: PointsHistoryItem[] = []
 
-        // Process earned points (1 point per order)
         allOrders.forEach((order) => {
-          // Add earned point for each order
           historyItems.push({
             id: `earned-${order.id}`,
             created_at: order.created_at,
             order_id: order.id,
-            points: 1, // 1 point per order
+            points: 1,
             type: "earned",
           })
 
-          // If points were redeemed in this order, add a redemption entry
           if (order.loyalty_points_redeemed && order.loyalty_points_redeemed > 0) {
             historyItems.push({
               id: `redeemed-${order.id}`,
@@ -68,10 +60,12 @@ export default function LoyaltyPointsHistory({ customerId }: { customerId: strin
           }
         })
 
-        // Sort by date (newest first)
-        historyItems.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        historyItems.sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
 
-        setDebugInfo({
+        // Optionally keep for console debugging:
+        console.log("Debug Info:", {
           totalOrders: allOrders.length,
           ordersWithRedemption: allOrders.filter((o) => o.loyalty_points_redeemed > 0).length,
           historyItemsCount: historyItems.length,
@@ -118,14 +112,6 @@ export default function LoyaltyPointsHistory({ customerId }: { customerId: strin
 
   return (
     <div className="space-y-4">
-      {/* Debug information - only visible during development */}
-      {debugInfo && (
-        <div className="bg-[#1d2c36] text-[#8f8578] p-4 rounded-lg mb-4 text-xs">
-          <h4 className="font-bold mb-1">Debug Info:</h4>
-          <pre className="overflow-auto">{JSON.stringify(debugInfo, null, 2)}</pre>
-        </div>
-      )}
-
       <h3 className="font-medium text-lg text-[#1d2c36]">Points Activity</h3>
       <div className="space-y-2">
         {history.map((item) => (
@@ -148,11 +134,16 @@ export default function LoyaltyPointsHistory({ customerId }: { customerId: strin
                   {item.type === "earned" ? "Earned Points" : "Redeemed Points"}
                 </p>
                 <p className="text-sm text-[#8f8578] text-opacity-80">
-                  Order #{item.order_id.substring(0, 8)} • {new Date(item.created_at).toLocaleDateString()}
+                  Order #{item.order_id.substring(0, 8)} •{" "}
+                  {new Date(item.created_at).toLocaleDateString()}
                 </p>
               </div>
             </div>
-            <div className={`font-bold ${item.type === "earned" ? "text-[#b9c6c8]" : "text-[#8f8578]"}`}>
+            <div
+              className={`font-bold ${
+                item.type === "earned" ? "text-[#b9c6c8]" : "text-[#8f8578]"
+              }`}
+            >
               {item.type === "earned" ? "+" : "-"}
               {item.points}
             </div>
