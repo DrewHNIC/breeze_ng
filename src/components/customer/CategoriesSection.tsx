@@ -24,38 +24,40 @@ const CategoriesSection = ({ categories }: CategoriesSectionProps) => {
 
   return (
     <section className="mb-16">
-      <h2 className="text-3xl md:text-4xl font-bold mb-8 text-center">Explore Categories</h2>
+      <h2 className="text-3xl md:text-4xl font-bold mb-10 text-center text-[#1d2c36]">
+        Explore Categories
+      </h2>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 px-4">
         {categories.map((category, index) => (
           <button
             key={index}
             onClick={() => handleCategoryClick(category.name)}
-            className="relative group overflow-hidden rounded-lg shadow-lg transition-transform transform hover:scale-105"
-            aria-label={`View restaurants in ${category.name}`} // Added ARIA label
+            className="relative group rounded-2xl overflow-hidden bg-[#1d2c36]/80 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-[1.03] focus:outline-none focus:ring-2 focus:ring-[#b9c6c8]"
+            aria-label={`View restaurants in ${category.name}`}
           >
-            {/* Category Image */}
+            {/* Background image */}
             <div className="aspect-square relative">
               <Image
                 src={category.image_url || "/placeholder.svg?height=400&width=400"}
                 alt={category.name}
                 fill
-                className="object-cover"
-                sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw" // Responsive image sizing
-                loading="lazy" // Lazy load images
+                className="object-cover brightness-90 group-hover:brightness-75 transition duration-300"
+                sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 20vw"
+                loading="lazy"
               />
             </div>
 
-            {/* Overlay */}
-            <div className="absolute inset-0 bg-black bg-opacity-30 group-hover:bg-opacity-70 transition-all duration-300"></div>
+            {/* Gradient overlay */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent group-hover:from-black/90 transition duration-300 z-10"></div>
 
-            {/* Category Name */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-              <span className="text-lg font-semibold group-hover:scale-110 transition-all">
+            {/* Text content */}
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-2">
+              <span className="text-white text-lg font-semibold drop-shadow-md group-hover:scale-110 transition-transform duration-300">
                 {category.name}
               </span>
               {category.description && (
-                <span className="text-xs mt-1 px-2 text-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-xs mt-1 text-white text-opacity-80 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   {category.description}
                 </span>
               )}
