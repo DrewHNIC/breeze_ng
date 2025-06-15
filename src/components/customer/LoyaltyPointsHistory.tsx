@@ -108,11 +108,6 @@ export default function LoyaltyPointsHistory({ customerId }: { customerId: strin
     )
   }
 
-  // Debug information section
-  if (debugInfo) {
-    console.log("Debug info:", debugInfo)
-  }
-
   if (history.length === 0) {
     return (
       <div className="text-center py-8 text-[#1d2c36]">
