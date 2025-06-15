@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import type { Order, OrderStatus } from "./OrderManagement"
 import OrderReceipt from "./OrderReceipt"
@@ -19,6 +19,10 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
       ? Math.round((new Date(order.estimated_delivery_time).getTime() - new Date().getTime()) / (1000 * 60))
       : 15,
   )
+
+  const [timeAdjustmentCount, setTimeAdjustmentCount] = useState(0)
+  const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
+  const [timerActive, setTimerActive] = useState(false)
 
   // Format date for display
   const formatDate = (dateString?: string) => {
@@ -43,6 +47,18 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
       hour: "2-digit",
       minute: "2-digit",
     }).format(date)
+  }
+
+  // Format time remaining for display
+  const formatTimeRemaining = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600)
+    const minutes = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+
+    if (hours > 0) {
+      return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+    }
+    return `${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
   }
 
   // Get next status options based on current status
@@ -82,7 +98,12 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
 
   // Handle estimated time update
   const handleEstimatedTimeUpdate = async () => {
-    if (!estimatedMinutes || estimatedMinutes < 1 || estimatedMinutes > 24) return
+    if (!estimatedMinutes || estimatedMinutes < 1 || estimatedMinutes > 1440) return
+
+    // Check if this is the second adjustment
+    if (timeAdjustmentCount >= 1) {
+      alert("Time can only be adjusted once more. After this adjustment, the timer will countdown until it expires.")
+    }
 
     // Convert minutes to full datetime (now + minutes)
     const estimatedDateTime = new Date()
@@ -92,6 +113,14 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
     try {
       const success = await onUpdateEstimatedTime(order.id, estimatedDateTime.toISOString())
       if (success) {
+        // Update adjustment count
+        setTimeAdjustmentCount((prev) => prev + 1)
+
+        // Update timer
+        const remainingSeconds = estimatedMinutes * 60
+        setTimeRemaining(remainingSeconds)
+        setTimerActive(true)
+
         onRefresh()
       }
     } finally {
@@ -125,6 +154,47 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
     const fee = subtotal * 0.1
     return Math.min(Math.max(fee, 200), 1000)
   }
+
+  // Timer countdown effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+
+    if (timerActive && timeRemaining !== null && timeRemaining > 0) {
+      interval = setInterval(() => {
+        setTimeRemaining((prev) => {
+          if (prev === null || prev <= 1) {
+            setTimerActive(false)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } else if (timeRemaining === 0) {
+      setTimerActive(false)
+    }
+
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [timerActive, timeRemaining])
+
+  // Initialize timer when order status changes to confirmed or preparing
+  useEffect(() => {
+    if (
+      order.estimated_delivery_time &&
+      (order.status === "confirmed" || order.status === "preparing" || order.status === "ready")
+    ) {
+      const estimatedTime = new Date(order.estimated_delivery_time).getTime()
+      const currentTime = new Date().getTime()
+      const remainingSeconds = Math.max(0, Math.floor((estimatedTime - currentTime) / 1000))
+
+      setTimeRemaining(remainingSeconds)
+      setTimerActive(remainingSeconds > 0)
+    } else {
+      setTimeRemaining(null)
+      setTimerActive(false)
+    }
+  }, [order.estimated_delivery_time, order.status])
 
   return (
     <div className="p-6">
@@ -230,31 +300,77 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
             </div>
 
             <div>
-              <p className="font-medium mb-2 text-[#b9c6c8]">Estimated Preparation Time (minutes):</p>
-              <div className="flex items-end gap-2">
-                <input
-                  type="number"
-                  min="1"
-                  max="24"
-                  className="border border-[#b9c6c8]/20 rounded-md px-3 py-2 bg-gradient-to-r from-[#1d2c36] to-[#243642] text-[#b9c6c8] focus:ring-2 focus:ring-[#b9c6c8]/50 focus:outline-none w-20"
-                  value={estimatedMinutes}
-                  onChange={(e) => setEstimatedMinutes(Number(e.target.value))}
-                />
+              <p className="font-medium mb-2 text-[#b9c6c8]">Estimated Preparation Time:</p>
+
+              {/* Digital Timer Display */}
+              {timeRemaining !== null && timerActive && (
+                <div className="mb-4 p-4 bg-gradient-to-r from-[#1d2c36] to-[#243642] rounded-lg border border-[#b9c6c8]/20">
+                  <div className="text-center">
+                    <div className="text-3xl font-mono font-bold text-[#b9c6c8] mb-2">
+                      {formatTimeRemaining(timeRemaining)}
+                    </div>
+                    <div className="text-sm text-[#8f8578]">
+                      {timeRemaining > 0 ? "Time Remaining" : "Time Expired"}
+                    </div>
+                    {timeRemaining === 0 && (
+                      <div className="text-red-400 text-sm font-medium mt-1">⚠️ Estimated time has expired</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Time Adjustment Controls */}
+              <div className="flex items-end gap-2 mb-2">
+                <div className="flex-1">
+                  <label className="block text-sm text-[#8f8578] mb-1">Minutes:</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="1440"
+                    className="border border-[#b9c6c8]/20 rounded-md px-3 py-2 bg-gradient-to-r from-[#1d2c36] to-[#243642] text-[#b9c6c8] focus:ring-2 focus:ring-[#b9c6c8]/50 focus:outline-none w-full"
+                    value={estimatedMinutes}
+                    onChange={(e) => setEstimatedMinutes(Number(e.target.value))}
+                    disabled={timeAdjustmentCount >= 2}
+                  />
+                </div>
                 <button
                   onClick={handleEstimatedTimeUpdate}
-                  disabled={isUpdating || !estimatedMinutes || estimatedMinutes < 1 || estimatedMinutes > 24}
-                  className={`px-3 py-2 rounded-md text-sm font-medium bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] text-[#1d2c36] hover:from-[#8f8578] hover:to-[#b9c6c8] transition-all duration-200 ${
-                    isUpdating || !estimatedMinutes || estimatedMinutes < 1 || estimatedMinutes > 24
+                  disabled={
+                    isUpdating ||
+                    !estimatedMinutes ||
+                    estimatedMinutes < 1 ||
+                    estimatedMinutes > 1440 ||
+                    timeAdjustmentCount >= 2
+                  }
+                  className={`px-4 py-2 rounded-md text-sm font-medium bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] text-[#1d2c36] hover:from-[#8f8578] hover:to-[#b9c6c8] transition-all duration-200 ${
+                    isUpdating ||
+                    !estimatedMinutes ||
+                    estimatedMinutes < 1 ||
+                    estimatedMinutes > 1440 ||
+                    timeAdjustmentCount >= 2
                       ? "opacity-50 cursor-not-allowed"
                       : ""
                   }`}
                 >
-                  Update
+                  {timeAdjustmentCount >= 2 ? "Max Adjustments" : "Update"}
                 </button>
               </div>
-              <p className="text-sm text-[#8f8578] mt-1">
-                Current: {formatTime(order.estimated_delivery_time)} | Range: 1-24 minutes
-              </p>
+
+              {/* Timer Status and Adjustment Info */}
+              <div className="text-xs text-[#8f8578] space-y-1">
+                <p>Current: {formatTime(order.estimated_delivery_time)} | Range: 1-1440 minutes</p>
+                <p>
+                  Time adjustments: {timeAdjustmentCount}/2
+                  {timeAdjustmentCount === 0 && " (You can adjust the time twice)"}
+                  {timeAdjustmentCount === 1 && " (One more adjustment allowed)"}
+                  {timeAdjustmentCount >= 2 && " (No more adjustments allowed - timer will countdown to expiry)"}
+                </p>
+                {(order.status === "confirmed" || order.status === "preparing" || order.status === "ready") &&
+                  !timerActive &&
+                  timeRemaining === null && (
+                    <p className="text-yellow-400">⏰ Set an estimated time to start the countdown timer</p>
+                  )}
+              </div>
             </div>
           </div>
         </div>
