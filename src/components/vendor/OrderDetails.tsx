@@ -14,8 +14,10 @@ interface OrderDetailsProps {
 
 export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedTime, onRefresh }: OrderDetailsProps) {
   const [isUpdating, setIsUpdating] = useState(false)
-  const [estimatedTime, setEstimatedTime] = useState(
-    order.estimated_delivery_time ? new Date(order.estimated_delivery_time).toTimeString().slice(0, 5) : "",
+  const [estimatedMinutes, setEstimatedMinutes] = useState(
+    order.estimated_delivery_time
+      ? Math.round((new Date(order.estimated_delivery_time).getTime() - new Date().getTime()) / (1000 * 60))
+      : 15,
   )
 
   // Format date for display
@@ -80,18 +82,11 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
 
   // Handle estimated time update
   const handleEstimatedTimeUpdate = async () => {
-    if (!estimatedTime) return
+    if (!estimatedMinutes || estimatedMinutes < 1 || estimatedMinutes > 24) return
 
-    // Convert time to full datetime (today + time)
-    const today = new Date()
-    const [hours, minutes] = estimatedTime.split(":")
-    const estimatedDateTime = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-      Number.parseInt(hours),
-      Number.parseInt(minutes),
-    )
+    // Convert minutes to full datetime (now + minutes)
+    const estimatedDateTime = new Date()
+    estimatedDateTime.setMinutes(estimatedDateTime.getMinutes() + estimatedMinutes)
 
     setIsUpdating(true)
     try {
@@ -127,8 +122,8 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-8">
         <h2 className="text-2xl font-bold text-[#b9c6c8]">Order #{order.order_code}</h2>
         <div className="flex items-center gap-2">
           <span className="text-sm text-[#8f8578]">{formatDate(order.created_at)}</span>
@@ -154,11 +149,11 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Customer Information */}
-        <div className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent p-4 rounded-lg border border-[#b9c6c8]/20">
-          <h3 className="font-semibold text-lg mb-3 text-[#b9c6c8]">Customer Information</h3>
-          <div className="space-y-2">
+        <div className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent p-6 rounded-lg border border-[#b9c6c8]/20">
+          <h3 className="font-semibold text-lg mb-4 text-[#b9c6c8]">Customer Information</h3>
+          <div className="space-y-3">
             <p className="text-[#8f8578]">
               <span className="font-medium text-[#b9c6c8]">Name:</span> {order.customer_name}
             </p>
@@ -170,8 +165,8 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
             </p>
             {order.special_instructions && (
               <div>
-                <p className="font-medium text-[#b9c6c8]">Special Instructions:</p>
-                <p className="text-sm bg-gradient-to-r from-[#1d2c36] to-[#243642] p-2 rounded border border-[#b9c6c8]/20 mt-1 text-[#8f8578]">
+                <p className="font-medium text-[#b9c6c8] mb-2">Special Instructions:</p>
+                <p className="text-sm bg-gradient-to-r from-[#1d2c36] to-[#243642] p-3 rounded border border-[#b9c6c8]/20 text-[#8f8578]">
                   {order.special_instructions}
                 </p>
               </div>
@@ -180,8 +175,8 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
         </div>
 
         {/* Order Status Management */}
-        <div className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent p-4 rounded-lg border border-[#b9c6c8]/20">
-          <h3 className="font-semibold text-lg mb-3 text-[#b9c6c8]">Order Status</h3>
+        <div className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent p-6 rounded-lg border border-[#b9c6c8]/20">
+          <h3 className="font-semibold text-lg mb-4 text-[#b9c6c8]">Order Status</h3>
           <div className="space-y-4">
             <div>
               <p className="font-medium mb-2 text-[#b9c6c8]">Current Status:</p>
@@ -230,25 +225,31 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
             </div>
 
             <div>
-              <p className="font-medium mb-2 text-[#b9c6c8]">Estimated Delivery Time:</p>
+              <p className="font-medium mb-2 text-[#b9c6c8]">Estimated Preparation Time (minutes):</p>
               <div className="flex items-end gap-2">
                 <input
-                  type="time"
-                  className="border border-[#b9c6c8]/20 rounded-md px-3 py-2 bg-gradient-to-r from-[#1d2c36] to-[#243642] text-[#b9c6c8] focus:ring-2 focus:ring-[#b9c6c8]/50 focus:outline-none"
-                  value={estimatedTime}
-                  onChange={(e) => setEstimatedTime(e.target.value)}
+                  type="number"
+                  min="1"
+                  max="24"
+                  className="border border-[#b9c6c8]/20 rounded-md px-3 py-2 bg-gradient-to-r from-[#1d2c36] to-[#243642] text-[#b9c6c8] focus:ring-2 focus:ring-[#b9c6c8]/50 focus:outline-none w-20"
+                  value={estimatedMinutes}
+                  onChange={(e) => setEstimatedMinutes(Number(e.target.value))}
                 />
                 <button
                   onClick={handleEstimatedTimeUpdate}
-                  disabled={isUpdating || !estimatedTime}
+                  disabled={isUpdating || !estimatedMinutes || estimatedMinutes < 1 || estimatedMinutes > 24}
                   className={`px-3 py-2 rounded-md text-sm font-medium bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] text-[#1d2c36] hover:from-[#8f8578] hover:to-[#b9c6c8] transition-all duration-200 ${
-                    isUpdating || !estimatedTime ? "opacity-50 cursor-not-allowed" : ""
+                    isUpdating || !estimatedMinutes || estimatedMinutes < 1 || estimatedMinutes > 24
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
                   }`}
                 >
                   Update
                 </button>
               </div>
-              <p className="text-sm text-[#8f8578] mt-1">Current: {formatTime(order.estimated_delivery_time)}</p>
+              <p className="text-sm text-[#8f8578] mt-1">
+                Current: {formatTime(order.estimated_delivery_time)} | Range: 1-24 minutes
+              </p>
             </div>
           </div>
         </div>
@@ -256,83 +257,85 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
 
       {/* Order Items */}
       <div className="mb-8">
-        <h3 className="font-semibold text-lg mb-3 text-[#b9c6c8]">Order Items</h3>
+        <h3 className="font-semibold text-lg mb-4 text-[#b9c6c8]">Order Items</h3>
         {!order.items || order.items.length === 0 ? (
           <p className="text-[#8f8578]">No items found for this order</p>
         ) : (
           <div className="border border-[#b9c6c8]/20 rounded-lg overflow-hidden">
-            <table className="min-w-full divide-y divide-[#b9c6c8]/20">
-              <thead className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
-                  >
-                    Item
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
-                  >
-                    Quantity
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
-                  >
-                    Price
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
-                  >
-                    Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-gradient-to-r from-[#1d2c36] to-[#243642] divide-y divide-[#b9c6c8]/10">
-                {order.items.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {item.image_url && (
-                          <div className="flex-shrink-0 h-10 w-10 mr-4">
-                            <Image
-                              src={item.image_url || "/placeholder.svg"}
-                              alt={item.menu_item_name}
-                              width={40}
-                              height={40}
-                              className="rounded-md object-cover"
-                            />
-                          </div>
-                        )}
-                        <div>
-                          <div className="font-medium text-[#b9c6c8]">{item.menu_item_name}</div>
-                          {item.special_requests && (
-                            <div className="text-xs text-[#8f8578] mt-1">Note: {item.special_requests}</div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8f8578]">{item.quantity}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b9c6c8]">
-                      ₦{(item.price_per_item || 0).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b9c6c8] font-medium">
-                      ₦{((item.quantity || 0) * (item.price_per_item || 0)).toLocaleString()}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-[#b9c6c8]/20">
+                <thead className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                    >
+                      Item
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                    >
+                      Quantity
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                    >
+                      Price
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-4 text-left text-xs font-medium text-[#8f8578] uppercase tracking-wider"
+                    >
+                      Total
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="bg-gradient-to-r from-[#1d2c36] to-[#243642] divide-y divide-[#b9c6c8]/10">
+                  {order.items.map((item) => (
+                    <tr key={item.id}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center">
+                          {item.image_url && (
+                            <div className="flex-shrink-0 h-12 w-12 mr-4">
+                              <Image
+                                src={item.image_url || "/placeholder.svg"}
+                                alt={item.menu_item_name}
+                                width={48}
+                                height={48}
+                                className="rounded-md object-cover"
+                              />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="font-medium text-[#b9c6c8] text-sm md:text-base">{item.menu_item_name}</div>
+                            {item.special_requests && (
+                              <div className="text-xs text-[#8f8578] mt-1">Note: {item.special_requests}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#8f8578]">{item.quantity}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b9c6c8]">
+                        ₦{(item.price_per_item || 0).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-[#b9c6c8] font-medium">
+                        ₦{((item.quantity || 0) * (item.price_per_item || 0)).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
 
       {/* Order Summary */}
-      <div className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent p-4 rounded-lg border border-[#b9c6c8]/20">
-        <h3 className="font-semibold text-lg mb-3 text-[#b9c6c8]">Order Summary</h3>
-        <div className="space-y-2">
+      <div className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent p-6 rounded-lg border border-[#b9c6c8]/20">
+        <h3 className="font-semibold text-lg mb-4 text-[#b9c6c8]">Order Summary</h3>
+        <div className="space-y-3">
           <div className="flex justify-between text-[#8f8578]">
             <span>Subtotal:</span>
             <span>₦{calculateSubtotal().toLocaleString()}</span>
@@ -341,7 +344,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
             <span>Delivery Fee:</span>
             <span>₦{calculateDeliveryFee().toLocaleString()}</span>
           </div>
-          <div className="border-t border-[#b9c6c8]/20 pt-2 mt-2 flex justify-between font-bold text-[#b9c6c8]">
+          <div className="border-t border-[#b9c6c8]/20 pt-3 mt-3 flex justify-between font-bold text-[#b9c6c8] text-lg">
             <span>Total:</span>
             <span>₦{(order.total_amount || 0).toLocaleString()}</span>
           </div>
@@ -351,11 +354,9 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
           </div>
           <div className="flex justify-between text-sm text-[#8f8578]">
             <span>Payment Status:</span>
-            <span className={`${order.payment_status === "paid" ? "text-green-400" : "text-yellow-400"}`}>
-              {order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1)}
-            </span>
+            <span className="text-green-400">Successful</span>
           </div>
-          <div className="mt-4">
+          <div className="mt-6">
             <OrderReceipt order={order} />
           </div>
         </div>

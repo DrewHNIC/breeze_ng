@@ -1,6 +1,7 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useState, useEffect } from "react"
+import { supabase } from "@/utils/supabase"
 import type { Order } from "./OrderManagement"
 
 interface OrderReceiptProps {
@@ -9,6 +10,36 @@ interface OrderReceiptProps {
 
 export default function OrderReceipt({ order }: OrderReceiptProps) {
   const receiptRef = useRef<HTMLDivElement>(null)
+  const [vendorName, setVendorName] = useState("Restaurant")
+
+  // Fetch vendor name
+  useEffect(() => {
+    async function fetchVendorName() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        if (!session) return
+
+        const { data: vendor, error } = await supabase
+          .from("vendors")
+          .select("store_name")
+          .eq("id", session.user.id)
+          .single()
+
+        if (error) {
+          console.error("Error fetching vendor name:", error)
+          return
+        }
+
+        setVendorName(vendor.store_name || "Restaurant")
+      } catch (error) {
+        console.error("Error in fetchVendorName:", error)
+      }
+    }
+
+    fetchVendorName()
+  }, [])
 
   const handlePrint = () => {
     const content = receiptRef.current
@@ -42,6 +73,12 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
               border-bottom: 1px dashed #ddd;
               padding-bottom: 10px;
             }
+            .font-logo {
+              font-family: 'Brush Script MT', cursive;
+              font-size: 24px;
+              font-weight: bold;
+              color: #333;
+            }
             .info {
               margin-bottom: 15px;
               font-size: 12px;
@@ -57,12 +94,26 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
               margin-bottom: 5px;
               font-size: 12px;
             }
+            .item-detail {
+              display: flex;
+              justify-content: space-between;
+              margin-bottom: 3px;
+              font-size: 11px;
+              padding-left: 10px;
+            }
+            .pricing {
+              border-top: 1px dashed #ddd;
+              padding-top: 10px;
+              margin-top: 10px;
+            }
             .total {
               font-weight: bold;
               display: flex;
               justify-content: space-between;
               margin-top: 10px;
               font-size: 14px;
+              border-top: 1px solid #333;
+              padding-top: 5px;
             }
             .footer {
               text-align: center;
@@ -118,6 +169,18 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
     return Math.min(Math.max(fee, 200), 1000)
   }
 
+  // Calculate VAT (7.5%)
+  const calculateVAT = () => {
+    const subtotal = calculateSubtotal()
+    return subtotal * 0.075
+  }
+
+  // Calculate service fee (2.5%)
+  const calculateServiceFee = () => {
+    const subtotal = calculateSubtotal()
+    return subtotal * 0.025
+  }
+
   return (
     <div>
       <button
@@ -145,8 +208,10 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
       <div className="hidden">
         <div ref={receiptRef} className="receipt">
           <div className="header">
-            <h2>Breeze</h2>
-            <p>Restaurant Name: {order.customer_name}</p>
+            <h2 className="font-logo">Breeze</h2>
+            <p>
+              <strong>Restaurant:</strong> {vendorName}
+            </p>
             <p>Order #{order.order_code}</p>
             <p>{formatDate(order.created_at)}</p>
           </div>
@@ -173,16 +238,28 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
               <strong>Items:</strong>
             </p>
             {order.items?.map((item) => (
-              <div key={item.id} className="item">
-                <span>
-                  {item.quantity}x {item.menu_item_name}
-                </span>
-                <span>₦{(item.quantity * item.price_per_item).toLocaleString()}</span>
+              <div key={item.id}>
+                <div className="item">
+                  <span>{item.menu_item_name}</span>
+                  <span></span>
+                </div>
+                <div className="item-detail">
+                  <span>
+                    {item.quantity} x ₦{item.price_per_item.toLocaleString()}
+                  </span>
+                  <span>₦{(item.quantity * item.price_per_item).toLocaleString()}</span>
+                </div>
+                {item.special_requests && (
+                  <div className="item-detail">
+                    <span style={{ fontStyle: "italic", color: "#666" }}>Note: {item.special_requests}</span>
+                    <span></span>
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
-          <div>
+          <div className="pricing">
             <div className="item">
               <span>Subtotal:</span>
               <span>₦{calculateSubtotal().toLocaleString()}</span>
@@ -190,6 +267,14 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
             <div className="item">
               <span>Delivery Fee:</span>
               <span>₦{calculateDeliveryFee().toLocaleString()}</span>
+            </div>
+            <div className="item">
+              <span>VAT (7.5%):</span>
+              <span>₦{Math.round(calculateVAT()).toLocaleString()}</span>
+            </div>
+            <div className="item">
+              <span>Service Fee (2.5%):</span>
+              <span>₦{Math.round(calculateServiceFee()).toLocaleString()}</span>
             </div>
             <div className="total">
               <span>Total:</span>
@@ -201,7 +286,7 @@ export default function OrderReceipt({ order }: OrderReceiptProps) {
             </div>
             <div className="item">
               <span>Payment Status:</span>
-              <span>{order.payment_status.charAt(0).toUpperCase() + order.payment_status.slice(1)}</span>
+              <span>Successful</span>
             </div>
           </div>
 

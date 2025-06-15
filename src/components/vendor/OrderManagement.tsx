@@ -281,11 +281,11 @@ export default function OrderManagement() {
         <OrderNotifications onNewOrder={refreshOrders} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Order List Section - Takes 1/3 of the screen on large devices */}
-        <div className="lg:col-span-1 bg-gradient-to-br from-[#1d2c36] to-[#243642] rounded-lg shadow-md p-4 border border-[#b9c6c8]/20">
-          <div className="mb-4">
-            <div className="flex flex-col md:flex-row md:items-center gap-4 mb-4">
+      <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
+        {/* Order List Section - Takes 2/5 of the screen on extra large devices */}
+        <div className="xl:col-span-2 bg-gradient-to-br from-[#1d2c36] to-[#243642] rounded-lg shadow-md border border-[#b9c6c8]/20">
+          <div className="p-6">
+            <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
               <input
                 type="text"
                 placeholder="Search orders..."
@@ -310,7 +310,7 @@ export default function OrderManagement() {
               </select>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
               <div className="w-full md:w-1/2">
                 <label className="block text-sm font-medium text-[#8f8578] mb-1">From</label>
                 <input
@@ -332,7 +332,7 @@ export default function OrderManagement() {
             </div>
 
             <button
-              className="bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] hover:from-[#8f8578] hover:to-[#b9c6c8] text-[#1d2c36] font-semibold py-2 px-4 rounded w-full transition-all duration-200"
+              className="bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] hover:from-[#8f8578] hover:to-[#b9c6c8] text-[#1d2c36] font-semibold py-2 px-4 rounded w-full transition-all duration-200 mb-6"
               onClick={() => {
                 setSearchQuery("")
                 setStatusFilter("all")
@@ -341,18 +341,18 @@ export default function OrderManagement() {
             >
               Clear Filters
             </button>
-          </div>
 
-          <OrderList
-            orders={orders}
-            loading={loading}
-            selectedOrderId={selectedOrder?.id}
-            onSelectOrder={(order) => setSelectedOrder(order)}
-          />
+            <OrderList
+              orders={orders}
+              loading={loading}
+              selectedOrderId={selectedOrder?.id}
+              onSelectOrder={(order) => setSelectedOrder(order)}
+            />
+          </div>
         </div>
 
-        {/* Order Details Section - Takes 2/3 of the screen on large devices */}
-        <div className="lg:col-span-2 bg-gradient-to-br from-[#1d2c36] to-[#243642] rounded-lg shadow-md p-4 border border-[#b9c6c8]/20">
+        {/* Order Details Section - Takes 3/5 of the screen on extra large devices */}
+        <div className="xl:col-span-3 bg-gradient-to-br from-[#1d2c36] to-[#243642] rounded-lg shadow-md border border-[#b9c6c8]/20">
           {selectedOrder ? (
             <OrderDetails
               order={selectedOrder}
@@ -361,8 +361,26 @@ export default function OrderManagement() {
               onRefresh={refreshOrders}
             />
           ) : (
-            <div className="flex flex-col items-center justify-center h-64">
-              <p className="text-[#8f8578] text-lg">Select an order to view details</p>
+            <div className="flex flex-col items-center justify-center h-96 p-6">
+              <div className="text-center">
+                <svg
+                  className="mx-auto h-16 w-16 text-[#8f8578] mb-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                <p className="text-[#8f8578] text-lg font-medium">Select an order to view details</p>
+                <p className="text-[#8f8578]/60 text-sm mt-2">
+                  Choose an order from the list to see customer information, items, and manage status
+                </p>
+              </div>
             </div>
           )}
         </div>
