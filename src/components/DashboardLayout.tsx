@@ -250,7 +250,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
         >
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-6 border-b border-[#b9c6c8]/20 md:hidden">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold font-logo bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] bg-clip-text text-transparent">
                 BREEZE
               </h1>
               <button
