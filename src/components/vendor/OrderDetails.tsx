@@ -30,7 +30,9 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
       : 15,
   )
 
-  const [timeAdjustmentCount, setTimeAdjustmentCount] = useState(0)
+  // Remove this line: const [timeAdjustmentCount, setTimeAdjustmentCount] = useState(0)
+  // We'll use order.timer_adjustments_count || 0 instead
+
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
   const [timerActive, setTimerActive] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -120,8 +122,16 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
   const handleEstimatedTimeUpdate = async () => {
     if (!estimatedMinutes || estimatedMinutes < 1 || estimatedMinutes > 1440) return
 
+    const currentAdjustments = order.timer_adjustments_count || 0
+
+    // Prevent adjustments if order is ready or delivered
+    if (order.status === "ready" || order.status === "delivered" || order.status === "picked_up") {
+      addNotification("error", "Cannot Update", "Cannot adjust time for orders that are ready or completed.")
+      return
+    }
+
     // Check if this is the second adjustment
-    if (timeAdjustmentCount >= 1) {
+    if (currentAdjustments >= 1) {
       addNotification(
         "warning",
         "Final Time Adjustment",
@@ -135,20 +145,18 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
 
     setIsUpdating(true)
     try {
-      // Update both estimated time and status to "preparing"
+      // Update both estimated time, status, and adjustment count
       const { error: timeError } = await supabase
         .from("orders")
         .update({
           estimated_delivery_time: estimatedDateTime.toISOString(),
           status: "preparing",
+          timer_adjustments_count: currentAdjustments + 1,
           updated_at: new Date().toISOString(),
         })
         .eq("id", order.id)
 
       if (timeError) throw timeError
-
-      // Update adjustment count
-      setTimeAdjustmentCount((prev) => prev + 1)
 
       // Update timer
       const remainingSeconds = estimatedMinutes * 60
@@ -464,7 +472,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
                     className="border border-[#b9c6c8]/20 rounded-md px-3 py-2 bg-gradient-to-r from-[#1d2c36] to-[#243642] text-[#b9c6c8] focus:ring-2 focus:ring-[#b9c6c8]/50 focus:outline-none w-full"
                     value={estimatedMinutes}
                     onChange={(e) => setEstimatedMinutes(Number(e.target.value))}
-                    disabled={timeAdjustmentCount >= 2}
+                    disabled={order.timer_adjustments_count >= 2}
                   />
                 </div>
                 <button
@@ -474,19 +482,22 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
                     !estimatedMinutes ||
                     estimatedMinutes < 1 ||
                     estimatedMinutes > 1440 ||
-                    timeAdjustmentCount >= 2
+                    (order.timer_adjustments_count || 0) >= 2 ||
+                    order.status === "ready" ||
+                    order.status === "delivered" ||
+                    order.status === "picked_up"
                   }
                   className={`px-4 py-2 rounded-md text-sm font-medium bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] text-[#1d2c36] hover:from-[#8f8578] hover:to-[#b9c6c8] transition-all duration-200 ${
                     isUpdating ||
                     !estimatedMinutes ||
                     estimatedMinutes < 1 ||
                     estimatedMinutes > 1440 ||
-                    timeAdjustmentCount >= 2
+                    (order.timer_adjustments_count || 0) >= 2
                       ? "opacity-50 cursor-not-allowed"
                       : ""
                   }`}
                 >
-                  {timeAdjustmentCount >= 2 ? "Max Adjustments" : "Update"}
+                  {(order.timer_adjustments_count || 0) >= 2 ? "Max Adjustments" : "Update"}
                 </button>
               </div>
 
@@ -494,10 +505,11 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
               <div className="text-xs text-[#8f8578] space-y-1">
                 <p>Current: {formatTime(order.estimated_delivery_time)} | Range: 1-1440 minutes</p>
                 <p>
-                  Time adjustments: {timeAdjustmentCount}/2
-                  {timeAdjustmentCount === 0 && " (You can adjust the time twice)"}
-                  {timeAdjustmentCount === 1 && " (One more adjustment allowed)"}
-                  {timeAdjustmentCount >= 2 && " (No more adjustments allowed - timer will countdown to expiry)"}
+                  Time adjustments: {order.timer_adjustments_count || 0}/2
+                  {(order.timer_adjustments_count || 0) === 0 && " (You can adjust the time twice)"}
+                  {(order.timer_adjustments_count || 0) === 1 && " (One more adjustment allowed)"}
+                  {(order.timer_adjustments_count || 0) >= 2 &&
+                    " (No more adjustments allowed - timer will countdown to expiry)"}
                 </p>
                 {(order.status === "confirmed" || order.status === "preparing" || order.status === "ready") &&
                   !timerActive &&
@@ -505,6 +517,13 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
                     <p className="text-yellow-400">⏰ Set an estimated time to start the countdown timer</p>
                   )}
               </div>
+              {(order.status === "ready" || order.status === "delivered" || order.status === "picked_up") && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4">
+                  <p className="text-gray-700 text-sm">
+                    Time adjustments are not allowed for orders that are ready or completed.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

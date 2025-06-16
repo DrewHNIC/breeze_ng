@@ -149,7 +149,7 @@ const AdPackages: React.FC<AdPackagesProps> = ({ activeAd, onPurchase }) => {
         {adPackages.map((pkg) => (
           <div
             key={pkg.name}
-            className={`relative bg-gradient-to-br from-[#1d2c36] to-[#243642] rounded-xl shadow-lg overflow-hidden p-6 lg:p-8 border-2 transition-all duration-200 hover:scale-105 ${
+            className={`relative bg-gradient-to-br from-[#1d2c36] to-[#243642] rounded-xl shadow-lg overflow-hidden p-6 border-2 transition-all duration-200 hover:scale-105 ${
               pkg.highlight ? "border-[#b9c6c8]" : "border-[#b9c6c8]/20"
             }`}
           >
@@ -160,18 +160,16 @@ const AdPackages: React.FC<AdPackagesProps> = ({ activeAd, onPurchase }) => {
               </div>
             )}
 
-            <h3 className="text-xl lg:text-2xl font-bold mb-3 lg:mb-4 text-[#b9c6c8] leading-tight">{pkg.name}</h3>
-            <p className="text-[#8f8578] text-sm lg:text-base mb-4 lg:mb-6 leading-relaxed min-h-[3rem] lg:min-h-[4rem]">
-              {pkg.description}
-            </p>
-            <p className="text-3xl lg:text-4xl font-bold text-[#b9c6c8] mb-1">{pkg.price.toLocaleString()}</p>
-            <p className="text-sm lg:text-base text-[#8f8578] mb-6 lg:mb-8">per day</p>
+            <h3 className="text-xl font-bold mb-2 text-[#b9c6c8]">{pkg.name}</h3>
+            <p className="text-[#8f8578] text-sm mb-4 leading-relaxed">{pkg.description}</p>
+            <p className="text-3xl font-bold text-[#b9c6c8] mb-1">₦{pkg.price.toLocaleString()}</p>
+            <p className="text-sm text-[#8f8578] mb-4">per day</p>
 
-            <ul className="mb-6 lg:mb-8 space-y-3 lg:space-y-4 min-h-[8rem] lg:min-h-[10rem]">
+            <ul className="mb-6 space-y-2">
               {pkg.features.map((feature, index) => (
-                <li key={index} className="flex items-start text-sm lg:text-base leading-relaxed">
-                  <CheckCircle className="w-4 h-4 lg:w-5 lg:h-5 text-green-400 mr-3 flex-shrink-0 mt-0.5" />
-                  <span className="text-[#8f8578]">{feature}</span>
+                <li key={index} className="flex items-start text-sm">
+                  <CheckCircle className="w-4 h-4 text-green-400 mr-2 flex-shrink-0 mt-0.5" />
+                  <span className="text-[#8f8578] leading-relaxed">{feature}</span>
                 </li>
               ))}
             </ul>
@@ -185,7 +183,7 @@ const AdPackages: React.FC<AdPackagesProps> = ({ activeAd, onPurchase }) => {
                 }
               }}
               disabled={activeAd !== null || isLoading || selectedPackage === pkg.name}
-              className={`w-full py-3 lg:py-4 px-4 lg:px-6 rounded-lg font-medium text-sm lg:text-base transition-all duration-200 ${
+              className={`w-full py-3 px-4 rounded-lg font-medium text-sm transition-all duration-200 ${
                 activeAd === null && !isLoading
                   ? "bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] text-[#1d2c36] hover:from-[#8f8578] hover:to-[#b9c6c8]"
                   : "bg-[#8f8578]/50 text-[#8f8578] cursor-not-allowed"
@@ -193,7 +191,7 @@ const AdPackages: React.FC<AdPackagesProps> = ({ activeAd, onPurchase }) => {
             >
               {selectedPackage === pkg.name ? (
                 <span className="flex items-center justify-center">
-                  <Loader className="animate-spin -ml-1 mr-2 h-4 w-4 lg:h-5 lg:w-5" />
+                  <Loader className="animate-spin -ml-1 mr-2 h-4 w-4" />
                   Processing...
                 </span>
               ) : activeAd === null ? (
