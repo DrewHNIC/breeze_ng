@@ -262,7 +262,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
               </button>
             </div>
             <div className="p-6 hidden md:block">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold font-logo bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] bg-clip-text text-transparent">
                 BREEZE
               </h1>
             </div>
