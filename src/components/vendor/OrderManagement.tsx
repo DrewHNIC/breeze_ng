@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { supabase } from "@/utils/supabase"
+import { startOrderStatusChecker } from "@/utils/orderStatusUpdater"
 import OrderList from "./OrderList"
 import OrderDetails from "./OrderDetails"
 import OrderNotifications from "./OrderNotifications"
@@ -55,6 +56,17 @@ export default function OrderManagement() {
   const refreshOrders = () => {
     setRefreshTrigger((prev) => prev + 1)
   }
+
+  // Start the background order status checker
+  useEffect(() => {
+    const interval = startOrderStatusChecker()
+
+    return () => {
+      if (interval) {
+        clearInterval(interval)
+      }
+    }
+  }, [])
 
   // Generate 3-digit order code
   const generateOrderCode = (orderId: string) => {
@@ -200,40 +212,6 @@ export default function OrderManagement() {
     fetchOrderDetails()
   }, [selectedOrder])
 
-  // Handle order status update
-  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
-    try {
-      const { error } = await supabase
-        .from("orders")
-        .update({
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", orderId)
-
-      if (error) {
-        console.error("Error updating order status:", error)
-        return false
-      }
-
-      // Update local state
-      setOrders((prevOrders) =>
-        prevOrders.map((order) =>
-          order.id === orderId ? { ...order, status: newStatus, updated_at: new Date().toISOString() } : order,
-        ),
-      )
-
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus, updated_at: new Date().toISOString() } : null))
-      }
-
-      return true
-    } catch (error) {
-      console.error("Error in updateOrderStatus:", error)
-      return false
-    }
-  }
-
   // Handle updating estimated delivery time
   const updateEstimatedDeliveryTime = async (orderId: string, estimatedTime: string) => {
     try {
@@ -241,6 +219,7 @@ export default function OrderManagement() {
         .from("orders")
         .update({
           estimated_delivery_time: estimatedTime,
+          status: "preparing", // Automatically set to preparing when time is set
           updated_at: new Date().toISOString(),
         })
         .eq("id", orderId)
@@ -254,14 +233,26 @@ export default function OrderManagement() {
       setOrders((prevOrders) =>
         prevOrders.map((order) =>
           order.id === orderId
-            ? { ...order, estimated_delivery_time: estimatedTime, updated_at: new Date().toISOString() }
+            ? {
+                ...order,
+                estimated_delivery_time: estimatedTime,
+                status: "preparing",
+                updated_at: new Date().toISOString(),
+              }
             : order,
         ),
       )
 
       if (selectedOrder?.id === orderId) {
         setSelectedOrder((prev) =>
-          prev ? { ...prev, estimated_delivery_time: estimatedTime, updated_at: new Date().toISOString() } : null,
+          prev
+            ? {
+                ...prev,
+                estimated_delivery_time: estimatedTime,
+                status: "preparing",
+                updated_at: new Date().toISOString(),
+              }
+            : null,
         )
       }
 
@@ -358,7 +349,6 @@ export default function OrderManagement() {
           {selectedOrder ? (
             <OrderDetails
               order={selectedOrder}
-              onUpdateStatus={updateOrderStatus}
               onUpdateEstimatedTime={updateEstimatedDeliveryTime}
               onRefresh={refreshOrders}
             />
@@ -380,7 +370,7 @@ export default function OrderManagement() {
                 </svg>
                 <p className="text-[#8f8578] text-lg font-medium">Select an order to view details</p>
                 <p className="text-[#8f8578]/60 text-sm mt-2">
-                  Choose an order from the list to see customer information, items, and manage status
+                  Choose an order from the list to see customer information, items, and manage preparation time
                 </p>
               </div>
             </div>

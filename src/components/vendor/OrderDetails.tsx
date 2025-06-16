@@ -5,6 +5,7 @@ import Image from "next/image"
 import { CheckCircle, AlertCircle, Clock, X } from "lucide-react"
 import type { Order, OrderStatus } from "./OrderManagement"
 import OrderReceipt from "./OrderReceipt"
+import { supabase } from "@/utils/supabase"
 
 interface OrderDetailsProps {
   order: Order
@@ -115,22 +116,6 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
     }
   }
 
-  // Handle status update
-  const handleStatusUpdate = async (newStatus: OrderStatus) => {
-    setIsUpdating(true)
-    try {
-      const success = await onUpdateStatus(order.id, newStatus)
-      if (success) {
-        addNotification("success", "Status Updated", `Order status has been changed to ${formatStatus(newStatus)}`)
-        onRefresh()
-      } else {
-        addNotification("error", "Update Failed", "Failed to update order status. Please try again.")
-      }
-    } finally {
-      setIsUpdating(false)
-    }
-  }
-
   // Handle estimated time update
   const handleEstimatedTimeUpdate = async () => {
     if (!estimatedMinutes || estimatedMinutes < 1 || estimatedMinutes > 1440) return
@@ -150,26 +135,36 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
 
     setIsUpdating(true)
     try {
-      const success = await onUpdateEstimatedTime(order.id, estimatedDateTime.toISOString())
-      if (success) {
-        // Update adjustment count
-        setTimeAdjustmentCount((prev) => prev + 1)
+      // Update both estimated time and status to "preparing"
+      const { error: timeError } = await supabase
+        .from("orders")
+        .update({
+          estimated_delivery_time: estimatedDateTime.toISOString(),
+          status: "preparing",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", order.id)
 
-        // Update timer
-        const remainingSeconds = estimatedMinutes * 60
-        setTimeRemaining(remainingSeconds)
-        setTimerActive(true)
+      if (timeError) throw timeError
 
-        addNotification(
-          "success",
-          "Timer Updated",
-          `Preparation time set to ${estimatedMinutes} minutes. Timer is now active.`,
-        )
+      // Update adjustment count
+      setTimeAdjustmentCount((prev) => prev + 1)
 
-        onRefresh()
-      } else {
-        addNotification("error", "Update Failed", "Failed to update estimated time. Please try again.")
-      }
+      // Update timer
+      const remainingSeconds = estimatedMinutes * 60
+      setTimeRemaining(remainingSeconds)
+      setTimerActive(true)
+
+      addNotification(
+        "success",
+        "Order Status Updated",
+        `Order status changed to "Preparing". Timer set for ${estimatedMinutes} minutes.`,
+      )
+
+      onRefresh()
+    } catch (error) {
+      console.error("Error updating estimated time:", error)
+      addNotification("error", "Update Failed", "Failed to update estimated time. Please try again.")
     } finally {
       setIsUpdating(false)
     }
@@ -211,10 +206,32 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
         setTimeRemaining((prev) => {
           if (prev === null || prev <= 1) {
             setTimerActive(false)
+
+            // Automatically update status to "ready" when timer expires
+            if (order.status === "preparing") {
+              supabase
+                .from("orders")
+                .update({
+                  status: "ready",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", order.id)
+                .then(({ error }) => {
+                  if (!error) {
+                    addNotification(
+                      "success",
+                      "Order Ready",
+                      "Order has been automatically marked as ready for delivery.",
+                    )
+                    onRefresh()
+                  }
+                })
+            }
+
             addNotification(
-              "warning",
+              "info",
               "Timer Expired",
-              "The estimated preparation time has expired. Please update the customer if needed.",
+              "The preparation time has expired. Order is now ready for delivery.",
             )
             return 0
           }
@@ -228,7 +245,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [timerActive, timeRemaining])
+  }, [timerActive, timeRemaining, order.status, order.id, onRefresh])
 
   // Initialize timer when order status changes to confirmed or preparing
   useEffect(() => {
@@ -281,7 +298,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
   }
 
   return (
-    <div className="p-6 relative">
+    <div className="p-4 md:p-6 lg:p-8 relative max-w-6xl mx-auto">
       {/* Notification Container */}
       {notifications.length > 0 && (
         <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
@@ -313,9 +330,9 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-2xl font-bold text-[#b9c6c8]">Order #{order.order_code}</h2>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 lg:mb-8 gap-4">
+        <h2 className="text-xl lg:text-2xl font-bold text-[#b9c6c8]">Order #{order.order_code}</h2>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
           <span className="text-sm text-[#8f8578]">{formatDate(order.created_at)}</span>
           <span
             className={`text-xs px-3 py-1 rounded-full font-medium ${
@@ -339,7 +356,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-8 mb-6 lg:mb-8">
         {/* Customer Information */}
         <div className="bg-gradient-to-r from-[#b9c6c8]/10 to-transparent p-6 rounded-lg border border-[#b9c6c8]/20">
           <h3 className="font-semibold text-lg mb-4 text-[#b9c6c8]">Customer Information</h3>
@@ -370,9 +387,9 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
           <div className="space-y-4">
             <div>
               <p className="font-medium mb-2 text-[#b9c6c8]">Current Status:</p>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mb-4">
                 <span
-                  className={`px-3 py-1 rounded-full font-medium ${
+                  className={`px-4 py-2 rounded-full font-medium text-sm ${
                     order.status === "pending"
                       ? "bg-yellow-100 text-yellow-800"
                       : order.status === "confirmed"
@@ -392,26 +409,28 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
                 </span>
                 <span className="text-sm text-[#8f8578]">Updated: {formatDate(order.updated_at)}</span>
               </div>
-            </div>
 
-            <div>
-              <p className="font-medium mb-2 text-[#b9c6c8]">Update Status:</p>
-              <div className="flex flex-wrap gap-2">
-                {getNextStatusOptions(order.status).map((status) => (
-                  <button
-                    key={status}
-                    onClick={() => handleStatusUpdate(status)}
-                    disabled={isUpdating || status === order.status}
-                    className={`px-3 py-1 rounded-md text-sm font-medium transition-all duration-200 ${
-                      status === "cancelled"
-                        ? "bg-red-100 hover:bg-red-200 text-red-800"
-                        : "bg-blue-100 hover:bg-blue-200 text-blue-800"
-                    } ${isUpdating || status === order.status ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    {formatStatus(status)}
-                  </button>
-                ))}
-              </div>
+              {order.status === "pending" && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                  <p className="text-yellow-700 text-sm">
+                    Set preparation time to automatically update status to "Preparing"
+                  </p>
+                </div>
+              )}
+
+              {order.status === "preparing" && timeRemaining !== null && timeRemaining > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <p className="text-blue-700 text-sm">
+                    Order will automatically be marked as "Ready for Delivery" when timer expires
+                  </p>
+                </div>
+              )}
+
+              {order.status === "ready" && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                  <p className="text-green-700 text-sm">Order is ready for pickup by delivery rider</p>
+                </div>
+              )}
             </div>
 
             <div>
@@ -473,7 +492,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
 
               {/* Timer Status and Adjustment Info */}
               <div className="text-xs text-[#8f8578] space-y-1">
-                <p>Current: {formatTime(order.estimated_delivery_time)} | Range: You have a minimum of 1 minute, and a maximum of 24 minutes for your orders!</p>
+                <p>Current: {formatTime(order.estimated_delivery_time)} | Range: 1-1440 minutes</p>
                 <p>
                   Time adjustments: {timeAdjustmentCount}/2
                   {timeAdjustmentCount === 0 && " (You can adjust the time twice)"}

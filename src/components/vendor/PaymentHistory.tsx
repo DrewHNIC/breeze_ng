@@ -15,9 +15,7 @@ interface Payment {
   payment_method: string
   transaction_date: string
   created_at: string
-  metadata: {
-    package_name: string
-  }
+  metadata: any // Change from specific type to any to handle different structures
 }
 
 const PaymentHistory: React.FC = () => {
@@ -132,7 +130,9 @@ const PaymentHistory: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-[#8f8578]">{payment.reference}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-[#8f8578]">
-                    {payment.metadata?.package_name || "N/A"}
+                    {payment.metadata?.package_name ||
+                      (typeof payment.metadata === "string" ? JSON.parse(payment.metadata)?.package_name : null) ||
+                      "N/A"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-[#b9c6c8] font-medium">
                     ₦{payment.amount.toLocaleString()}
