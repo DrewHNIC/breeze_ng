@@ -145,7 +145,7 @@ const AdPackages: React.FC<AdPackagesProps> = ({ activeAd, onPurchase }) => {
       </div>
 
       {/* Ad Package Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         {adPackages.map((pkg) => (
           <div
             key={pkg.name}
@@ -161,7 +161,7 @@ const AdPackages: React.FC<AdPackagesProps> = ({ activeAd, onPurchase }) => {
             )}
 
             <h3 className="text-xl font-bold mb-2 text-[#b9c6c8]">{pkg.name}</h3>
-            <p className="text-[#8f8578] text-sm mb-4 leading-relaxed">{pkg.description}</p>
+            <p className="text-[#8f8578] text-sm mb-4">{pkg.description}</p>
             <p className="text-3xl font-bold text-[#b9c6c8] mb-1">₦{pkg.price.toLocaleString()}</p>
             <p className="text-sm text-[#8f8578] mb-4">per day</p>
 
@@ -169,7 +169,7 @@ const AdPackages: React.FC<AdPackagesProps> = ({ activeAd, onPurchase }) => {
               {pkg.features.map((feature, index) => (
                 <li key={index} className="flex items-start text-sm">
                   <CheckCircle className="w-4 h-4 text-green-400 mr-2 flex-shrink-0 mt-0.5" />
-                  <span className="text-[#8f8578] leading-relaxed">{feature}</span>
+                  <span className="text-[#8f8578]">{feature}</span>
                 </li>
               ))}
             </ul>
@@ -183,7 +183,7 @@ const AdPackages: React.FC<AdPackagesProps> = ({ activeAd, onPurchase }) => {
                 }
               }}
               disabled={activeAd !== null || isLoading || selectedPackage === pkg.name}
-              className={`w-full py-3 px-4 rounded-lg font-medium text-sm transition-all duration-200 ${
+              className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
                 activeAd === null && !isLoading
                   ? "bg-gradient-to-r from-[#b9c6c8] to-[#8f8578] text-[#1d2c36] hover:from-[#8f8578] hover:to-[#b9c6c8]"
                   : "bg-[#8f8578]/50 text-[#8f8578] cursor-not-allowed"
