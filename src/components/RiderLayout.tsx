@@ -8,7 +8,6 @@ import Link from "next/link"
 import Head from "next/head"
 import { supabase } from "@/utils/supabase"
 import { Home, Package, Clock, User, LogOut, Menu, X, DollarSign, Bike } from "lucide-react"
-import { NotificationProvider } from "@/components/ui/notification"
 
 interface RiderLayoutProps {
   children: React.ReactNode
@@ -64,7 +63,7 @@ const RiderLayout = ({ children, title = "Rider Dashboard" }: RiderLayoutProps) 
   ]
 
   return (
-    <NotificationProvider>
+    <>
       <Head>
         <title>{title} | Breeze Delivery</title>
       </Head>
@@ -81,7 +80,7 @@ const RiderLayout = ({ children, title = "Rider Dashboard" }: RiderLayoutProps) 
               >
                 <Menu className="h-6 w-6" />
               </button>
-              <h1 className="text-xl font-bold font-logo text-[#8f8578] ml-2">Breeze</h1>
+              <h1 className="text-xl font-bold font-logo text-[#8f8578] ml-2">Breeze Rider</h1>
             </div>
 
             {/* Desktop Navigation */}
@@ -119,7 +118,7 @@ const RiderLayout = ({ children, title = "Rider Dashboard" }: RiderLayoutProps) 
             <div className="bg-gradient-to-b from-[#8f8578] to-[#7a7066] w-64 h-full shadow-2xl">
               <div className="p-4 border-b border-[#b9c6c8]/30">
                 <div className="flex items-center justify-between">
-                  <h2 className="font-bold font-logo text-lg text-[#1d2c36]">Breeze</h2>
+                  <h2 className="font-bold text-lg text-[#1d2c36]">Breeze Delivery</h2>
                   <button
                     className="p-2 rounded-full hover:bg-[#b9c6c8]/20 text-[#1d2c36]"
                     onClick={() => setIsMenuOpen(false)}
@@ -164,7 +163,7 @@ const RiderLayout = ({ children, title = "Rider Dashboard" }: RiderLayoutProps) 
         {/* Main Content */}
         <main className="flex-1">{children}</main>
       </div>
-    </NotificationProvider>
+    </>
   )
 }
 

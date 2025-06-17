@@ -7,7 +7,6 @@ import { MapPin, Package, Clock, AlertCircle, Loader2, RefreshCw, Search, CheckC
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { useNotification, notify } from "@/components/ui/notification"
 import RiderLayout from "@/components/RiderLayout"
 
 interface AvailableOrder {
@@ -28,7 +27,6 @@ interface AvailableOrder {
 
 const AvailableOrdersPage = () => {
   const router = useRouter()
-  const { addNotification } = useNotification()
   const [orders, setOrders] = useState<AvailableOrder[]>([])
   const [filteredOrders, setFilteredOrders] = useState<AvailableOrder[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -38,6 +36,25 @@ const AvailableOrdersPage = () => {
   const [riderId, setRiderId] = useState<string | null>(null)
   const [riderStatus, setRiderStatus] = useState<boolean>(false)
   const [statusUpdateTime, setStatusUpdateTime] = useState<string | null>(null)
+  const [notifications, setNotifications] = useState<
+    Array<{ id: string; title: string; description: string; type: string }>
+  >([])
+
+  // Simple notification system for this component
+  const addNotification = (notification: { title: string; description: string; type: string }) => {
+    const id = Math.random().toString(36).substr(2, 9)
+    const newNotification = { ...notification, id }
+    setNotifications((prev) => [...prev, newNotification])
+
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id))
+    }, 5000)
+  }
+
+  const removeNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+  }
 
   useEffect(() => {
     checkAuth()
@@ -106,7 +123,11 @@ const AvailableOrdersPage = () => {
         setRiderStatus(true)
         setStatusUpdateTime(new Date().toLocaleTimeString())
 
-        addNotification(notify.success("Status updated", "You are now available for deliveries."))
+        addNotification({
+          title: "Status updated",
+          description: "You are now available for deliveries.",
+          type: "success",
+        })
       }
     } catch (error) {
       console.error("Error in checkAuth:", error)
@@ -124,22 +145,29 @@ const AvailableOrdersPage = () => {
 
       if (error) {
         console.error("Error updating rider status:", error)
-        addNotification(notify.error("Status update failed", "Could not update your availability status."))
+        addNotification({
+          title: "Status update failed",
+          description: "Could not update your availability status.",
+          type: "error",
+        })
         return
       }
 
       setRiderStatus(newStatus)
       setStatusUpdateTime(new Date().toLocaleTimeString())
 
-      addNotification(
-        notify.success(
-          "Status updated",
-          newStatus ? "You are now available for deliveries." : "You are now unavailable for deliveries.",
-        ),
-      )
+      addNotification({
+        title: "Status updated",
+        description: newStatus ? "You are now available for deliveries." : "You are now unavailable for deliveries.",
+        type: "success",
+      })
     } catch (error) {
       console.error("Error in toggleRiderStatus:", error)
-      addNotification(notify.error("An error occurred", "Failed to update your status."))
+      addNotification({
+        title: "An error occurred",
+        description: "Failed to update your status.",
+        type: "error",
+      })
     }
   }
 
@@ -264,17 +292,29 @@ const AvailableOrdersPage = () => {
 
       if (error) {
         console.error("Error accepting order:", error)
-        addNotification(notify.error("Failed to accept order", "This order may have been taken by another rider."))
+        addNotification({
+          title: "Failed to accept order",
+          description: "This order may have been taken by another rider.",
+          type: "error",
+        })
         return
       }
 
-      addNotification(notify.success("Order accepted", "You have successfully accepted this delivery."))
+      addNotification({
+        title: "Order accepted",
+        description: "You have successfully accepted this delivery.",
+        type: "success",
+      })
 
       // Redirect to current delivery page
       router.push(`/rider/current-delivery`)
     } catch (error) {
       console.error("Error in acceptOrder:", error)
-      addNotification(notify.error("An error occurred", "Failed to accept the order."))
+      addNotification({
+        title: "An error occurred",
+        description: "Failed to accept the order.",
+        type: "error",
+      })
     }
   }
 
@@ -332,6 +372,41 @@ const AvailableOrdersPage = () => {
 
   return (
     <RiderLayout title="Available Orders">
+      {/* Notifications */}
+      {notifications.length > 0 && (
+        <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`border rounded-lg p-4 shadow-lg animate-in slide-in-from-right duration-300 ${
+                notification.type === "success"
+                  ? "bg-gradient-to-r from-green-50 to-green-100 border-green-200"
+                  : notification.type === "error"
+                    ? "bg-gradient-to-r from-red-50 to-red-100 border-red-200"
+                    : "bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+              }`}
+            >
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  {notification.type === "success" && <CheckCircle className="h-5 w-5 text-green-500" />}
+                  {notification.type === "error" && <AlertCircle className="h-5 w-5 text-red-500" />}
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-sm font-medium text-gray-900">{notification.title}</h3>
+                  <p className="text-sm text-gray-600 mt-1">{notification.description}</p>
+                </div>
+                <button
+                  onClick={() => removeNotification(notification.id)}
+                  className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="container mx-auto px-4 py-6">
         {/* Rider Status Banner */}
         <div
