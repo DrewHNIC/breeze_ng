@@ -62,6 +62,8 @@ interface CurrentOrder {
   }
   items: OrderItem[]
   estimated_earnings: number
+  delivery_fee: number
+  service_fee: number
 }
 
 const CurrentDeliveryPage = () => {
@@ -244,6 +246,8 @@ const CurrentDeliveryPage = () => {
           status,
           vendor_id,
           customer_id,
+          delivery_fee,
+          service_fee,
           items:order_items(
             id, 
             quantity, 
@@ -336,6 +340,11 @@ const CurrentDeliveryPage = () => {
 
       const processedItems = await Promise.all(menuItemPromises)
 
+      // Calculate rider earnings: delivery fee + 10% of service fee
+      const deliveryFee = data.delivery_fee || 500 // Default delivery fee
+      const serviceFee = data.service_fee || 0
+      const riderEarnings = deliveryFee + serviceFee * 0.1
+
       // Construct the processed order
       const processedOrder: CurrentOrder = {
         ...data,
@@ -351,7 +360,9 @@ const CurrentDeliveryPage = () => {
           phone_number: customerData?.phone_number || data.contact_number || "",
         },
         items: processedItems,
-        estimated_earnings: calculateDeliveryFee(data.total_amount),
+        estimated_earnings: riderEarnings,
+        delivery_fee: deliveryFee,
+        service_fee: serviceFee,
       }
 
       console.log("Processed order:", processedOrder)
@@ -401,28 +412,28 @@ const CurrentDeliveryPage = () => {
       const updateTime = new Date().toLocaleTimeString()
       setLastStatusUpdate(`Order status updated to ${newStatus.replace("_", " ")} at ${updateTime}`)
 
-      // If order is completed, update rider stats
+      // If order is completed, update rider stats and earnings
       if (newStatus === "delivered") {
-        // Calculate delivery fee (same logic as in available-orders page)
-        const deliveryFee = calculateDeliveryFee(currentOrder.total_amount)
+        // Calculate rider earnings: delivery fee + 10% of service fee
+        const riderEarnings = currentOrder.delivery_fee + currentOrder.service_fee * 0.1
 
         // Update rider stats
         await supabase.rpc("update_rider_stats", {
           rider_id: riderId,
-          delivery_fee: deliveryFee,
+          delivery_fee: riderEarnings,
         })
 
         // Add to rider earnings
         await supabase.from("rider_earnings").insert({
           rider_id: riderId,
           order_id: currentOrder.id,
-          amount: deliveryFee,
+          amount: riderEarnings,
           status: "pending",
         })
 
         addNotification({
           title: "Delivery completed!",
-          description: `You earned ₦${deliveryFee.toLocaleString()} from this delivery.`,
+          description: `You earned ₦${riderEarnings.toLocaleString()} from this delivery.`,
           type: "success",
         })
 
@@ -473,13 +484,6 @@ const CurrentDeliveryPage = () => {
           type: "error",
         })
       })
-  }
-
-  const calculateDeliveryFee = (amount: number) => {
-    // This is a placeholder calculation - adjust based on your business logic
-    const baseFee = 500 // ₦500 base fee
-    const percentageFee = amount * 0.05 // 5% of order amount
-    return Math.min(Math.max(baseFee + percentageFee, 700), 2000) // Between ₦700 and ₦2000
   }
 
   const formatDate = (dateString: string) => {
@@ -807,6 +811,9 @@ const CurrentDeliveryPage = () => {
               <div className="text-right">
                 <p className="font-medium text-green-600">₦{currentOrder.estimated_earnings.toLocaleString()}</p>
                 <p className="text-sm text-[#1d2c36]/70">Your Earnings</p>
+                <p className="text-xs text-[#1d2c36]/60">
+                  Delivery: ₦{currentOrder.delivery_fee} + Service: ₦{Math.round(currentOrder.service_fee * 0.1)}
+                </p>
               </div>
             </div>
           </CardHeader>

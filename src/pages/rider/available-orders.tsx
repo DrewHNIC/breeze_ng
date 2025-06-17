@@ -23,6 +23,8 @@ interface AvailableOrder {
   estimated_delivery_time: string | null
   items_count: number
   estimated_earnings: number
+  delivery_fee: number
+  service_fee: number
 }
 
 const AvailableOrdersPage = () => {
@@ -193,6 +195,8 @@ const AvailableOrdersPage = () => {
           special_instructions,
           estimated_delivery_time,
           vendor_id,
+          delivery_fee,
+          service_fee,
           items_count:order_items(count)
         `)
         .eq("status", "ready")
@@ -239,6 +243,11 @@ const AvailableOrdersPage = () => {
             console.error("Error fetching vendor profile for vendor", order.vendor_id, ":", profileError)
           }
 
+          // Calculate rider earnings: delivery fee + 10% of service fee
+          const deliveryFee = order.delivery_fee || 500 // Default delivery fee
+          const serviceFee = order.service_fee || 0
+          const riderEarnings = deliveryFee + serviceFee * 0.1
+
           return {
             id: order.id,
             created_at: order.created_at,
@@ -252,7 +261,9 @@ const AvailableOrdersPage = () => {
               address: profileData?.address || "Address not available",
             },
             items_count: order.items_count.length,
-            estimated_earnings: calculateDeliveryFee(order.total_amount),
+            estimated_earnings: riderEarnings,
+            delivery_fee: deliveryFee,
+            service_fee: serviceFee,
           }
         }),
       )
@@ -331,13 +342,6 @@ const AvailableOrdersPage = () => {
     } catch (e) {
       return dateString
     }
-  }
-
-  const calculateDeliveryFee = (amount: number) => {
-    // This is a placeholder calculation - adjust based on your business logic
-    const baseFee = 500 // ₦500 base fee
-    const percentageFee = amount * 0.05 // 5% of order amount
-    return Math.min(Math.max(baseFee + percentageFee, 700), 2000) // Between ₦700 and ₦2000
   }
 
   if (isLoading) {
@@ -485,6 +489,9 @@ const AvailableOrdersPage = () => {
                       <div className="text-right">
                         <p className="font-medium text-green-600">₦{order.estimated_earnings.toLocaleString()}</p>
                         <p className="text-sm text-[#1d2c36]/70">Estimated Earnings</p>
+                        <p className="text-xs text-[#1d2c36]/60">
+                          Delivery: ₦{order.delivery_fee} + Service: ₦{Math.round(order.service_fee * 0.1)}
+                        </p>
                       </div>
                     </div>
 
