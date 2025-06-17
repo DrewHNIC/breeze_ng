@@ -12,6 +12,7 @@ interface OrderItem {
 
 interface Order {
   id: string
+  order_code?: string
   status: string
   total_amount: number
   original_amount?: number
@@ -163,10 +164,12 @@ const OrderDetails = ({ order }: OrderDetailsProps) => {
           </span>
         </div>
 
-        {/* Order ID for reference */}
+        {/* Order Code for reference */}
         <div className="flex justify-between text-sm pt-2 border-t border-[#1d2c36]/30">
-          <span className="text-[#1d2c36]">Order ID</span>
-          <span className="font-mono text-xs text-[#1d2c36] opacity-75">#{order.id.substring(0, 8)}</span>
+          <span className="text-[#1d2c36]">Order Code</span>
+          <span className="font-mono text-xs text-[#1d2c36] opacity-75">
+            #{order.order_code || order.id.substring(0, 8)}
+          </span>
         </div>
       </div>
     </div>

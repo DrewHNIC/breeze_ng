@@ -11,6 +11,7 @@ import { ArrowLeft, Loader2, AlertCircle, Phone, Clock, MapPin, Copy, Check, Sto
 
 interface Order {
   id: string
+  order_code?: string
   status: string
   total_amount: number
   original_amount?: number
@@ -90,11 +91,12 @@ const OrderTrackingPage = () => {
 
       console.log("Fetching order details for order ID:", orderId)
 
-      // Fetch order with all the detailed information
+      // Fetch order with all the detailed information including order_code
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .select(`
           id, 
+          order_code,
           status, 
           total_amount,
           original_amount,
@@ -304,7 +306,9 @@ const OrderTrackingPage = () => {
               <div className="bg-[#8f8578] rounded-lg shadow-md border border-[#1d2c36] p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h2 className="text-xl font-bold text-[#1d2c36]">Order #{order.id.substring(0, 8)}</h2>
+                    <h2 className="text-xl font-bold text-[#1d2c36]">
+                      Order #{order.order_code || order.id.substring(0, 8)}
+                    </h2>
                     <p className="text-[#1d2c36] opacity-75">{new Date(order.created_at).toLocaleString()}</p>
                   </div>
                   <div className="text-right">
