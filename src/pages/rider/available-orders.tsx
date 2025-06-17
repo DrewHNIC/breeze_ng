@@ -7,7 +7,8 @@ import { MapPin, Package, Clock, AlertCircle, Loader2, RefreshCw, Search, CheckC
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import RiderLayout from "@/components/Rid@/components/ui/notification
+import { useNotification, notify } from "@/components/ui/notification"
+import RiderLayout from "@/components/RiderLayout"
 
 interface AvailableOrder {
   id: string
@@ -25,18 +26,9 @@ interface AvailableOrder {
   estimated_earnings: number
 }
 
-// Simple notification function for fallback
-const showNotification = (title: string, description: string, type: "success" | "error" = "success") => {
-  // For now, we'll use a simple alert as fallback
-  // This will be replaced by the notification system once properly integrated
-  console.log(`${type.toUpperCase()}: ${title} - ${description}`)
-  if (typeof window !== "undefined") {
-    alert(`${title}: ${description}`)
-  }
-}
-
 const AvailableOrdersPage = () => {
   const router = useRouter()
+  const { addNotification } = useNotification()
   const [orders, setOrders] = useState<AvailableOrder[]>([])
   const [filteredOrders, setFilteredOrders] = useState<AvailableOrder[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -114,7 +106,7 @@ const AvailableOrdersPage = () => {
         setRiderStatus(true)
         setStatusUpdateTime(new Date().toLocaleTimeString())
 
-        showNotification("Status updated", "You are now available for deliveries.", "success")
+        addNotification(notify.success("Status updated", "You are now available for deliveries."))
       }
     } catch (error) {
       console.error("Error in checkAuth:", error)
@@ -132,21 +124,22 @@ const AvailableOrdersPage = () => {
 
       if (error) {
         console.error("Error updating rider status:", error)
-        showNotification("Status update failed", "Could not update your availability status.", "error")
+        addNotification(notify.error("Status update failed", "Could not update your availability status."))
         return
       }
 
       setRiderStatus(newStatus)
       setStatusUpdateTime(new Date().toLocaleTimeString())
 
-      showNotification(
-        "Status updated",
-        newStatus ? "You are now available for deliveries." : "You are now unavailable for deliveries.",
-        "success",
+      addNotification(
+        notify.success(
+          "Status updated",
+          newStatus ? "You are now available for deliveries." : "You are now unavailable for deliveries.",
+        ),
       )
     } catch (error) {
       console.error("Error in toggleRiderStatus:", error)
-      showNotification("An error occurred", "Failed to update your status.", "error")
+      addNotification(notify.error("An error occurred", "Failed to update your status."))
     }
   }
 
@@ -271,17 +264,17 @@ const AvailableOrdersPage = () => {
 
       if (error) {
         console.error("Error accepting order:", error)
-        showNotification("Failed to accept order", "This order may have been taken by another rider.", "error")
+        addNotification(notify.error("Failed to accept order", "This order may have been taken by another rider."))
         return
       }
 
-      showNotification("Order accepted", "You have successfully accepted this delivery.", "success")
+      addNotification(notify.success("Order accepted", "You have successfully accepted this delivery."))
 
       // Redirect to current delivery page
       router.push(`/rider/current-delivery`)
     } catch (error) {
       console.error("Error in acceptOrder:", error)
-      showNotification("An error occurred", "Failed to accept the order.", "error")
+      addNotification(notify.error("An error occurred", "Failed to accept the order."))
     }
   }
 
