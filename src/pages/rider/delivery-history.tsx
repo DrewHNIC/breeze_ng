@@ -7,7 +7,7 @@ import {
   MapPin,
   Package,
   Clock,
-  DollarSign,
+  Banknote,
   AlertCircle,
   Loader2,
   Search,
@@ -19,7 +19,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { toast } from "@/hooks/use-toast"
 import RiderLayout from "@/components/RiderLayout"
 
 interface DeliveryHistoryItem {
@@ -50,10 +49,29 @@ const DeliveryHistoryPage = () => {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null)
   const [riderStatus, setRiderStatus] = useState<boolean>(false)
   const [statusUpdateTime, setStatusUpdateTime] = useState<string | null>(null)
+  const [notifications, setNotifications] = useState<
+    Array<{ id: string; title: string; description: string; type: string }>
+  >([])
 
   // Stats
   const [totalDeliveries, setTotalDeliveries] = useState(0)
   const [totalEarnings, setTotalEarnings] = useState(0)
+
+  // Simple notification system for this component
+  const addNotification = (notification: { title: string; description: string; type: string }) => {
+    const id = Math.random().toString(36).substr(2, 9)
+    const newNotification = { ...notification, id }
+    setNotifications((prev) => [...prev, newNotification])
+
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id))
+    }, 5000)
+  }
+
+  const removeNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id))
+  }
 
   useEffect(() => {
     checkAuth()
@@ -134,10 +152,10 @@ const DeliveryHistoryPage = () => {
 
       if (error) {
         console.error("Error updating rider status:", error)
-        toast({
+        addNotification({
           title: "Status update failed",
           description: "Could not update your availability status.",
-          variant: "destructive",
+          type: "error",
         })
         return
       }
@@ -145,16 +163,17 @@ const DeliveryHistoryPage = () => {
       setRiderStatus(newStatus)
       setStatusUpdateTime(new Date().toLocaleTimeString())
 
-      toast({
+      addNotification({
         title: "Status updated",
         description: newStatus ? "You are now available for deliveries." : "You are now unavailable for deliveries.",
+        type: "success",
       })
     } catch (error) {
       console.error("Error in toggleRiderStatus:", error)
-      toast({
+      addNotification({
         title: "An error occurred",
         description: "Failed to update your status.",
-        variant: "destructive",
+        type: "error",
       })
     }
   }
@@ -307,6 +326,41 @@ const DeliveryHistoryPage = () => {
 
   return (
     <RiderLayout title="Delivery History">
+      {/* Notifications */}
+      {notifications.length > 0 && (
+        <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className={`border rounded-lg p-4 shadow-lg animate-in slide-in-from-right duration-300 ${
+                notification.type === "success"
+                  ? "bg-gradient-to-r from-green-50 to-green-100 border-green-200"
+                  : notification.type === "error"
+                    ? "bg-gradient-to-r from-red-50 to-red-100 border-red-200"
+                    : "bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
+              }`}
+            >
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  {notification.type === "success" && <CheckCircle className="h-5 w-5 text-green-500" />}
+                  {notification.type === "error" && <AlertCircle className="h-5 w-5 text-red-500" />}
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-sm font-medium text-gray-900">{notification.title}</h3>
+                  <p className="text-sm text-gray-600 mt-1">{notification.description}</p>
+                </div>
+                <button
+                  onClick={() => removeNotification(notification.id)}
+                  className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="container mx-auto px-4 py-6">
         {/* Rider Status Banner */}
         <div
@@ -362,7 +416,7 @@ const DeliveryHistoryPage = () => {
             <CardContent className="p-6">
               <h3 className="text-sm text-[#1d2c36]/70 mb-1">Total Earnings</h3>
               <div className="flex items-center">
-                <DollarSign className="h-5 w-5 text-green-500 mr-2" />
+                <Banknote className="h-5 w-5 text-green-500 mr-2" />
                 <span className="text-2xl font-bold text-[#1d2c36]">₦{totalEarnings.toLocaleString()}</span>
               </div>
             </CardContent>
@@ -486,7 +540,7 @@ const DeliveryHistoryPage = () => {
                           </div>
                         </div>
                         <div className="flex">
-                          <DollarSign className="h-4 w-4 text-[#b9c6c8] mr-2 flex-shrink-0 mt-0.5" />
+                          <Banknote className="h-4 w-4 text-[#b9c6c8] mr-2 flex-shrink-0 mt-0.5" />
                           <div>
                             <p className="text-sm font-medium text-[#1d2c36]">Your Earnings</p>
                             <p className="text-sm text-green-600 font-medium">

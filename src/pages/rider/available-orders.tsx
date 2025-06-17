@@ -181,7 +181,7 @@ const AvailableOrdersPage = () => {
 
       console.log("Fetching available orders...")
 
-      // Get orders that are confirmed but don't have a rider assigned
+      // Get orders that are ready or confirmed but don't have a rider assigned
       const { data, error } = await supabase
         .from("orders")
         .select(`
@@ -195,7 +195,7 @@ const AvailableOrdersPage = () => {
           vendor_id,
           items_count:order_items(count)
         `)
-        .eq("status", "confirmed")
+        .in("status", ["ready", "confirmed"])
         .is("rider_id", null)
         .order("created_at", { ascending: false })
 
@@ -287,7 +287,7 @@ const AvailableOrdersPage = () => {
           updated_at: new Date().toISOString(),
         })
         .eq("id", orderId)
-        .eq("status", "confirmed")
+        .in("status", ["ready", "confirmed"])
         .is("rider_id", null)
 
       if (error) {
