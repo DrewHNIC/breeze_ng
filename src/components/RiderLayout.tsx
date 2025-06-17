@@ -80,7 +80,7 @@ const RiderLayout = ({ children, title = "Rider Dashboard" }: RiderLayoutProps) 
               >
                 <Menu className="h-6 w-6" />
               </button>
-              <h1 className="text-xl font-bold font-logo text-[#8f8578] ml-2">Breeze Rider</h1>
+              <h1 className="text-xl font-bold font-logo text-[#8f8578] ml-2">Breeze</h1>
             </div>
 
             {/* Desktop Navigation */}

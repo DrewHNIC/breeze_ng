@@ -3,22 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/router"
 import { supabase } from "@/utils/supabase"
-import {
-  Package,
-  Clock,
-  Star,
-  Calendar,
-  MapPin,
-  Loader2,
-  AlertCircle,
-  ArrowRight,
-  CheckCircle,
-  Bike,
-  ToggleLeft,
-  ToggleRight,
-  DollarSign,
-  User,
-} from "lucide-react"
+import { Package, Clock, Star, Calendar, MapPin, Loader2, AlertCircle, ArrowRight, CheckCircle, Bike, ToggleLeft, ToggleRight, DollarSign, User } from 'lucide-react'
 import RiderLayout from "@/components/RiderLayout"
 
 // Create a simple toast implementation since we don't have the hook
@@ -40,7 +25,6 @@ interface RiderStats {
 interface RecentDelivery {
   id: string
   completed_at: string
-  total_amount: number
   delivery_address: string
   vendor: {
     store_name: string
@@ -131,7 +115,6 @@ const RiderHomePage = () => {
         .select(`
           id, 
           updated_at,
-          total_amount, 
           delivery_address,
           vendor:vendors(store_name),
           earnings:rider_earnings(amount)
@@ -148,7 +131,6 @@ const RiderHomePage = () => {
         const processedDeliveries: RecentDelivery[] = deliveriesData.map((order) => ({
           id: order.id,
           completed_at: order.updated_at,
-          total_amount: order.total_amount,
           delivery_address: order.delivery_address,
           vendor: {
             store_name: order.vendor[0]?.store_name || "Unknown Restaurant",
@@ -481,7 +463,7 @@ const RiderHomePage = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-medium text-green-600">₦{delivery.earnings.amount.toLocaleString()}</p>
-                      <p className="text-xs text-[#1d2c36]/60">Order: ₦{delivery.total_amount.toLocaleString()}</p>
+                      <p className="text-xs text-[#1d2c36]/60">Your Earnings</p>
                     </div>
                   </div>
                 </div>
