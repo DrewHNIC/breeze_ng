@@ -182,11 +182,7 @@ const EarningsPage = () => {
           order_id,
           amount,
           status,
-          created_at,
-          orders!rider_earnings_order_id_fkey(
-            delivery_address,
-            vendors!orders_vendor_id_fkey(store_name)
-          )
+          created_at
         `)
         .eq("rider_id", riderId)
 
@@ -216,20 +212,54 @@ const EarningsPage = () => {
 
       console.log("Earnings history data:", earningsHistoryData)
 
-      // Process earnings history
-      const processedHistory: EarningsHistory[] = earningsHistoryData.map((earning: any) => ({
-        id: earning.id,
-        order_id: earning.order_id,
-        amount: earning.amount,
-        status: earning.status,
-        created_at: earning.created_at,
-        order: {
-          delivery_address: earning.orders?.delivery_address || "Unknown Address",
-          vendor: {
-            store_name: earning.orders?.vendors?.store_name || "Unknown Restaurant",
-          },
-        },
-      }))
+      // Process earnings history and fetch order details separately
+      const processedHistory: EarningsHistory[] = await Promise.all(
+        earningsHistoryData.map(async (earning: any) => {
+          // Fetch order details
+          const { data: orderData, error: orderError } = await supabase
+            .from("orders")
+            .select(`
+              delivery_address,
+              vendor_id
+            `)
+            .eq("id", earning.order_id)
+            .single()
+
+          if (orderError) {
+            console.error("Error fetching order for earning", earning.id, ":", orderError)
+          }
+
+          // Fetch vendor details
+          let vendorName = "Unknown Restaurant"
+          if (orderData?.vendor_id) {
+            const { data: vendorData, error: vendorError } = await supabase
+              .from("vendors")
+              .select("store_name")
+              .eq("id", orderData.vendor_id)
+              .single()
+
+            if (vendorError) {
+              console.error("Error fetching vendor for order", earning.order_id, ":", vendorError)
+            } else {
+              vendorName = vendorData?.store_name || "Unknown Restaurant"
+            }
+          }
+
+          return {
+            id: earning.id,
+            order_id: earning.order_id,
+            amount: earning.amount,
+            status: earning.status,
+            created_at: earning.created_at,
+            order: {
+              delivery_address: orderData?.delivery_address || "Unknown Address",
+              vendor: {
+                store_name: vendorName,
+              },
+            },
+          }
+        }),
+      )
 
       setEarningsHistory(processedHistory)
 
