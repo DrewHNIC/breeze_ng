@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { CheckCircle, AlertCircle, Clock, X } from "lucide-react"
 import type { Order, OrderStatus } from "./OrderManagement"
@@ -24,6 +24,7 @@ interface Notification {
 
 export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedTime, onRefresh }: OrderDetailsProps) {
   const [isUpdating, setIsUpdating] = useState(false)
+  const [currentOrder, setCurrentOrder] = useState(order)
 
   // Initialize with proper default value and range validation
   const [estimatedMinutes, setEstimatedMinutes] = useState(() => {
@@ -40,6 +41,25 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null)
   const [timerActive, setTimerActive] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
+
+  // Fetch fresh order data to get current timer_adjustments_count
+  const fetchOrderData = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.from("orders").select("*").eq("id", order.id).single()
+
+      if (error) throw error
+      if (data) {
+        setCurrentOrder(data)
+      }
+    } catch (error) {
+      console.error("Error fetching order data:", error)
+    }
+  }, [order.id])
+
+  // Fetch order data on component mount
+  useEffect(() => {
+    fetchOrderData()
+  }, [fetchOrderData])
 
   // Add notification function
   const addNotification = (type: Notification["type"], title: string, message: string) => {
@@ -108,7 +128,9 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
       return
     }
 
-    const currentAdjustments = order.timer_adjustments_count || 0
+    // Get fresh data to check current adjustment count
+    await fetchOrderData()
+    const currentAdjustments = currentOrder.timer_adjustments_count || 0
 
     // Prevent adjustments if already made 2 adjustments
     if (currentAdjustments >= 2) {
@@ -117,7 +139,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
     }
 
     // Prevent adjustments if order is ready or delivered
-    if (order.status === "ready" || order.status === "delivered" || order.status === "picked_up") {
+    if (currentOrder.status === "ready" || currentOrder.status === "delivered" || currentOrder.status === "picked_up") {
       addNotification("error", "Cannot Update", "Cannot adjust time for orders that are ready or completed.")
       return
     }
@@ -161,6 +183,8 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
         `Order status changed to "Preparing". Timer set for ${estimatedMinutes} minutes.`,
       )
 
+      // Refresh order data and parent component
+      await fetchOrderData()
       onRefresh()
     } catch (error) {
       console.error("Error updating estimated time:", error)
@@ -197,7 +221,28 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
     return Math.min(Math.max(fee, 200), 1000)
   }
 
-  // Timer countdown effect
+  // Auto-update status to ready when timer expires
+  const updateToReady = useCallback(async () => {
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          status: "ready",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", order.id)
+
+      if (!error) {
+        addNotification("success", "Order Ready", "Order has been automatically marked as ready for delivery.")
+        await fetchOrderData()
+        onRefresh()
+      }
+    } catch (error) {
+      console.error("Error updating order to ready:", error)
+    }
+  }, [order.id, onRefresh, fetchOrderData])
+
+  // Timer countdown effect - Fixed to work in real-time
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
 
@@ -208,24 +253,8 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
             setTimerActive(false)
 
             // Automatically update status to "ready" when timer expires
-            if (order.status === "preparing") {
-              supabase
-                .from("orders")
-                .update({
-                  status: "ready",
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", order.id)
-                .then(({ error }) => {
-                  if (!error) {
-                    addNotification(
-                      "success",
-                      "Order Ready",
-                      "Order has been automatically marked as ready for delivery.",
-                    )
-                    onRefresh()
-                  }
-                })
+            if (currentOrder.status === "preparing") {
+              updateToReady()
             }
 
             addNotification(
@@ -237,30 +266,39 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
           }
           return prev - 1
         })
-      }, 1000)
-    } else if (timeRemaining === 0) {
-      setTimerActive(false)
+      }, 1000) // Update every second for real-time countdown
     }
 
     return () => {
-      if (interval) clearInterval(interval)
+      if (interval) {
+        clearInterval(interval)
+      }
     }
-  }, [timerActive, timeRemaining, order.status, order.id, onRefresh])
+  }, [timerActive, timeRemaining, currentOrder.status, updateToReady])
 
   // Initialize timer when order status changes to confirmed or preparing
   useEffect(() => {
-    if (order.estimated_delivery_time && (order.status === "confirmed" || order.status === "preparing")) {
-      const estimatedTime = new Date(order.estimated_delivery_time).getTime()
+    if (currentOrder.estimated_delivery_time && currentOrder.status === "preparing") {
+      const estimatedTime = new Date(currentOrder.estimated_delivery_time).getTime()
       const currentTime = new Date().getTime()
       const remainingSeconds = Math.max(0, Math.floor((estimatedTime - currentTime) / 1000))
 
-      setTimeRemaining(remainingSeconds)
-      setTimerActive(remainingSeconds > 0 && order.status === "preparing")
+      if (remainingSeconds > 0) {
+        setTimeRemaining(remainingSeconds)
+        setTimerActive(true)
+      } else {
+        setTimeRemaining(0)
+        setTimerActive(false)
+        // If time has already expired, update to ready
+        if (currentOrder.status === "preparing") {
+          updateToReady()
+        }
+      }
     } else {
       setTimeRemaining(null)
       setTimerActive(false)
     }
-  }, [order.estimated_delivery_time, order.status])
+  }, [currentOrder.estimated_delivery_time, currentOrder.status, updateToReady])
 
   // Handle input change with validation
   const handleMinutesChange = (value: string) => {
@@ -304,10 +342,10 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
 
   // Check if adjustments are allowed
   const adjustmentsAllowed =
-    (order.timer_adjustments_count || 0) < 2 &&
-    order.status !== "ready" &&
-    order.status !== "delivered" &&
-    order.status !== "picked_up"
+    (currentOrder.timer_adjustments_count || 0) < 2 &&
+    currentOrder.status !== "ready" &&
+    currentOrder.status !== "delivered" &&
+    currentOrder.status !== "picked_up"
 
   return (
     <div className="p-4 md:p-6 lg:p-8 relative max-w-6xl mx-auto">
@@ -343,27 +381,27 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
       )}
 
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 lg:mb-8 gap-4">
-        <h2 className="text-xl lg:text-2xl font-bold text-[#b9c6c8]">Order #{order.order_code}</h2>
+        <h2 className="text-xl lg:text-2xl font-bold text-[#b9c6c8]">Order #{currentOrder.order_code}</h2>
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-          <span className="text-sm text-[#8f8578]">{formatDate(order.created_at)}</span>
+          <span className="text-sm text-[#8f8578]">{formatDate(currentOrder.created_at)}</span>
           <span
             className={`text-xs px-3 py-1 rounded-full font-medium ${
-              order.status === "pending"
+              currentOrder.status === "pending"
                 ? "bg-yellow-100 text-yellow-800"
-                : order.status === "confirmed"
+                : currentOrder.status === "confirmed"
                   ? "bg-blue-100 text-blue-800"
-                  : order.status === "preparing"
+                  : currentOrder.status === "preparing"
                     ? "bg-purple-100 text-purple-800"
-                    : order.status === "ready"
+                    : currentOrder.status === "ready"
                       ? "bg-green-100 text-green-800"
-                      : order.status === "picked_up"
+                      : currentOrder.status === "picked_up"
                         ? "bg-indigo-100 text-indigo-800"
-                        : order.status === "delivered"
+                        : currentOrder.status === "delivered"
                           ? "bg-green-100 text-green-800"
                           : "bg-red-100 text-red-800"
             }`}
           >
-            {formatStatus(order.status)}
+            {formatStatus(currentOrder.status)}
           </span>
         </div>
       </div>
@@ -402,27 +440,27 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
               <div className="flex items-center gap-2 mb-4">
                 <span
                   className={`px-4 py-2 rounded-full font-medium text-sm ${
-                    order.status === "pending"
+                    currentOrder.status === "pending"
                       ? "bg-yellow-100 text-yellow-800"
-                      : order.status === "confirmed"
+                      : currentOrder.status === "confirmed"
                         ? "bg-blue-100 text-blue-800"
-                        : order.status === "preparing"
+                        : currentOrder.status === "preparing"
                           ? "bg-purple-100 text-purple-800"
-                          : order.status === "ready"
+                          : currentOrder.status === "ready"
                             ? "bg-green-100 text-green-800"
-                            : order.status === "picked_up"
+                            : currentOrder.status === "picked_up"
                               ? "bg-indigo-100 text-indigo-800"
-                              : order.status === "delivered"
+                              : currentOrder.status === "delivered"
                                 ? "bg-green-100 text-green-800"
                                 : "bg-red-100 text-red-800"
                   }`}
                 >
-                  {formatStatus(order.status)}
+                  {formatStatus(currentOrder.status)}
                 </span>
-                <span className="text-sm text-[#8f8578]">Updated: {formatDate(order.updated_at)}</span>
+                <span className="text-sm text-[#8f8578]">Updated: {formatDate(currentOrder.updated_at)}</span>
               </div>
 
-              {order.status === "pending" && (
+              {currentOrder.status === "pending" && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
                   <p className="text-yellow-700 text-sm">
                     Set preparation time to automatically update status to "Preparing"
@@ -430,7 +468,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
                 </div>
               )}
 
-              {order.status === "preparing" && timeRemaining !== null && timeRemaining > 0 && (
+              {currentOrder.status === "preparing" && timeRemaining !== null && timeRemaining > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
                   <p className="text-blue-700 text-sm">
                     Order will automatically be marked as "Ready for Delivery" when timer expires
@@ -438,7 +476,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
                 </div>
               )}
 
-              {order.status === "ready" && (
+              {currentOrder.status === "ready" && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
                   <p className="text-green-700 text-sm">Order is ready for pickup by delivery rider</p>
                 </div>
@@ -504,15 +542,15 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
 
               {/* Timer Status and Adjustment Info */}
               <div className="text-xs text-[#8f8578] space-y-1">
-                <p>Current: {formatTime(order.estimated_delivery_time)} | Range: 1-25 minutes</p>
+                <p>Current: {formatTime(currentOrder.estimated_delivery_time)} | Range: 1-25 minutes</p>
                 <p>
-                  Time adjustments: {order.timer_adjustments_count || 0}/2
-                  {(order.timer_adjustments_count || 0) === 0 && " (You can adjust the time twice)"}
-                  {(order.timer_adjustments_count || 0) === 1 && " (One more adjustment allowed)"}
-                  {(order.timer_adjustments_count || 0) >= 2 &&
+                  Time adjustments: {currentOrder.timer_adjustments_count || 0}/2
+                  {(currentOrder.timer_adjustments_count || 0) === 0 && " (You can adjust the time twice)"}
+                  {(currentOrder.timer_adjustments_count || 0) === 1 && " (One more adjustment allowed)"}
+                  {(currentOrder.timer_adjustments_count || 0) >= 2 &&
                     " (No more adjustments allowed - timer will countdown to expiry)"}
                 </p>
-                {order.status === "pending" && (
+                {currentOrder.status === "pending" && (
                   <p className="text-yellow-400">⏰ Set an estimated time to start the countdown timer</p>
                 )}
               </div>
@@ -520,7 +558,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
               {!adjustmentsAllowed && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-4">
                   <p className="text-gray-700 text-sm">
-                    {(order.timer_adjustments_count || 0) >= 2
+                    {(currentOrder.timer_adjustments_count || 0) >= 2
                       ? "You have reached the maximum number of time adjustments (2)."
                       : "Time adjustments are not allowed for orders that are ready or completed."}
                   </p>
