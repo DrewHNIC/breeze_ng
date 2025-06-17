@@ -8,7 +8,7 @@ import Link from "next/link"
 import Head from "next/head"
 import { supabase } from "@/utils/supabase"
 import { Home, Package, Clock, User, LogOut, Menu, X, DollarSign, Bike } from "lucide-react"
-import { NotificationProvider } from "@/components/ui/notifications"
+import { NotificationProvider } from "@/components/ui/notification"
 
 interface RiderLayoutProps {
   children: React.ReactNode
