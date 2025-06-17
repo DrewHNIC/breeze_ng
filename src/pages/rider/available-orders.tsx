@@ -7,7 +7,7 @@ import { MapPin, Package, Clock, AlertCircle, Loader2, RefreshCw, Search, CheckC
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { useNotification, notify } from "@/components/ui/notification"
+import { useNotification, notify } from "@/components/ui/notifications"
 import RiderLayout from "@/components/RiderLayout"
 
 interface AvailableOrder {
