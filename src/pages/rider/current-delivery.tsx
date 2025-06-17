@@ -14,14 +14,22 @@ import {
   Loader2,
   Copy,
   Check,
-  DollarSign,
+  Truck,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import RiderLayout from "@/components/RiderLayout"
 
 // Define valid order statuses
-type OrderStatus = "pending" | "confirmed" | "preparing" | "ready" | "picked_up" | "delivered" | "cancelled"
+type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "preparing"
+  | "ready"
+  | "picked_up"
+  | "out_for_delivery"
+  | "delivered"
+  | "cancelled"
 
 interface OrderItem {
   id: string
@@ -96,6 +104,29 @@ const CurrentDeliveryPage = () => {
     if (riderId) {
       fetchCurrentDelivery()
       fetchRiderStatus()
+
+      // Set up real-time subscription for order updates
+      const subscription = supabase
+        .channel("order-updates")
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "orders",
+            filter: `rider_id=eq.${riderId}`,
+          },
+          (payload) => {
+            console.log("Real-time order update received:", payload)
+            // Refresh the current delivery when status changes
+            fetchCurrentDelivery()
+          },
+        )
+        .subscribe()
+
+      return () => {
+        subscription.unsubscribe()
+      }
     }
   }, [riderId])
 
@@ -221,7 +252,7 @@ const CurrentDeliveryPage = () => {
           )
         `)
         .eq("rider_id", riderId)
-        .in("status", ["confirmed", "preparing", "ready", "picked_up"])
+        .in("status", ["picked_up", "out_for_delivery"])
         .order("created_at", { ascending: false })
         .limit(1)
         .single()
@@ -470,22 +501,15 @@ const CurrentDeliveryPage = () => {
     if (!currentOrder) return null
 
     switch (currentOrder.status) {
-      case "confirmed":
-      case "preparing":
-        return {
-          label: "Mark as Ready",
-          action: () => updateOrderStatus("ready"),
-          icon: Package,
-        }
-      case "ready":
-        return {
-          label: "Picked Up From Restaurant",
-          action: () => updateOrderStatus("picked_up"),
-          icon: Package,
-        }
       case "picked_up":
         return {
-          label: "Delivered",
+          label: "Mark as Out for Delivery",
+          action: () => updateOrderStatus("out_for_delivery"),
+          icon: Truck,
+        }
+      case "out_for_delivery":
+        return {
+          label: "Mark as Delivered",
           action: () => updateOrderStatus("delivered"),
           icon: CheckCircle,
         }
@@ -496,21 +520,14 @@ const CurrentDeliveryPage = () => {
 
   const getStatusSteps = () => {
     const steps = [
-      { label: "Preparing", value: "preparing", status: "" },
-      { label: "Ready", value: "ready", status: "" },
       { label: "Picked Up", value: "picked_up", status: "" },
+      { label: "Out for Delivery", value: "out_for_delivery", status: "" },
       { label: "Delivered", value: "delivered", status: "" },
     ]
 
     if (!currentOrder) return steps
 
-    // Map the database status to our display status
-    let displayStatus = currentOrder.status
-    if (currentOrder.status === "confirmed") {
-      displayStatus = "preparing"
-    }
-
-    const currentIndex = steps.findIndex((step) => step.value === displayStatus)
+    const currentIndex = steps.findIndex((step) => step.value === currentOrder.status)
     return steps.map((step, index) => ({
       ...step,
       status: index < currentIndex ? "completed" : index === currentIndex ? "current" : "upcoming",
@@ -767,13 +784,11 @@ const CurrentDeliveryPage = () => {
                 className="absolute top-1/2 left-4 h-1 bg-green-500 -translate-y-1/2"
                 style={{
                   width: `${
-                    currentOrder.status === "confirmed" || currentOrder.status === "preparing"
+                    currentOrder.status === "picked_up"
                       ? "0%"
-                      : currentOrder.status === "ready"
-                        ? "33.3%"
-                        : currentOrder.status === "picked_up"
-                          ? "66.6%"
-                          : "100%"
+                      : currentOrder.status === "out_for_delivery"
+                        ? "50%"
+                        : "100%"
                   }`,
                 }}
               ></div>
@@ -903,7 +918,7 @@ const CurrentDeliveryPage = () => {
                     <p className="text-sm text-[#1d2c36]/70">Qty: {item.quantity}</p>
                   </div>
                   <div className="flex items-center">
-                    <DollarSign className="h-4 w-4 text-[#b9c6c8] mr-1" />
+                    <Package className="h-4 w-4 text-[#b9c6c8] mr-1" />
                     <span className="text-sm text-[#1d2c36]/70">Item</span>
                   </div>
                 </li>

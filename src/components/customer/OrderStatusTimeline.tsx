@@ -11,18 +11,21 @@ const OrderStatusTimeline = ({ status, createdAt }: OrderStatusTimelineProps) =>
     { id: "confirmed", label: "Confirmed", icon: CheckCircle, time: new Date(createdAt) },
     { id: "preparing", label: "Preparing", icon: ChefHat, time: null },
     { id: "ready", label: "Ready", icon: Package, time: null },
+    { id: "picked_up", label: "Picked Up", icon: Truck, time: null },
     { id: "out_for_delivery", label: "Out for Delivery", icon: Truck, time: null },
     { id: "delivered", label: "Delivered", icon: Home, time: null },
   ]
 
   // Map the current status to the step index
   const statusMap: Record<string, number> = {
+    pending: -1,
     confirmed: 0,
     preparing: 1,
     ready: 2,
-    out_for_delivery: 3,
-    delivered: 4,
-    cancelled: -1, // Special case
+    picked_up: 3,
+    out_for_delivery: 4,
+    delivered: 5,
+    cancelled: -2, // Special case
   }
 
   const currentStepIndex = statusMap[status] ?? 0
@@ -34,7 +37,7 @@ const OrderStatusTimeline = ({ status, createdAt }: OrderStatusTimelineProps) =>
         <div className="absolute top-5 left-0 right-0 h-1 bg-gray-200">
           <div
             className="h-full bg-red-500 transition-all duration-500"
-            style={{ width: `${Math.max(0, currentStepIndex) * 25}%` }}
+            style={{ width: `${Math.max(0, currentStepIndex + 1) * 20}%` }}
           ></div>
         </div>
 
