@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { useNotification, notify } from "@/components/ui/notifications"
+import { useNotification, notify } from "@/components/ui/notification"
 import RiderLayout from "@/components/RiderLayout"
 
 // Define valid order statuses
