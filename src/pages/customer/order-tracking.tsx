@@ -7,7 +7,7 @@ import { supabase } from "@/utils/supabase"
 import CustomerLayout from "@/components/CustomerLayout"
 import OrderStatusTimeline from "@/components/customer/OrderStatusTimeline"
 import OrderDetails from "@/components/customer/OrderDetails"
-import { ArrowLeft, Loader2, AlertCircle, Phone, Clock, MapPin, Copy, Check, Store, Truck } from "lucide-react"
+import { ArrowLeft, Loader2, AlertCircle, Phone, Clock, MapPin, Copy, Check, Store, Truck } from 'lucide-react'
 
 interface Order {
   id: string
@@ -46,6 +46,21 @@ interface OrderItem {
   name: string
   price: number
   quantity: number
+}
+
+// Function to generate 3-digit order code from order ID
+const generateOrderCode = (orderId: string): string => {
+  // Use the first 8 characters of the UUID and convert to a 3-digit number
+  const hashCode = orderId.substring(0, 8)
+  let hash = 0
+  for (let i = 0; i < hashCode.length; i++) {
+    const char = hashCode.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32-bit integer
+  }
+  // Ensure it's a positive 3-digit number (100-999)
+  const code = Math.abs(hash) % 900 + 100
+  return code.toString().padStart(3, '0')
 }
 
 const OrderTrackingPage = () => {
@@ -91,7 +106,7 @@ const OrderTrackingPage = () => {
 
       console.log("Fetching order details for order ID:", orderId)
 
-      // Fetch order with all the detailed information including order_code
+      // Fetch order with all the detailed information
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .select(`
@@ -134,6 +149,17 @@ const OrderTrackingPage = () => {
       }
 
       console.log("Order data fetched:", orderData)
+
+      // Generate order code if it doesn't exist
+      let orderCode = orderData.order_code
+      if (!orderCode) {
+        orderCode = generateOrderCode(orderData.id)
+        // Update the database with the generated order code
+        await supabase
+          .from("orders")
+          .update({ order_code: orderCode })
+          .eq("id", orderData.id)
+      }
 
       // Fetch vendor contact phone from vendor_profiles
       let vendorContactPhone = ""
@@ -211,6 +237,7 @@ const OrderTrackingPage = () => {
       // Combine order and items
       const completeOrder: Order = {
         ...orderData,
+        order_code: orderCode,
         vendor: {
           store_name: vendorName,
           contact_phone: vendorContactPhone,
@@ -306,9 +333,7 @@ const OrderTrackingPage = () => {
               <div className="bg-[#8f8578] rounded-lg shadow-md border border-[#1d2c36] p-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h2 className="text-xl font-bold text-[#1d2c36]">
-                      Order #{order.order_code || order.id.substring(0, 8)}
-                    </h2>
+                    <h2 className="text-xl font-bold text-[#1d2c36]">Order #{order.order_code || generateOrderCode(order.id)}</h2>
                     <p className="text-[#1d2c36] opacity-75">{new Date(order.created_at).toLocaleString()}</p>
                   </div>
                   <div className="text-right">

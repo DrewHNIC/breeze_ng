@@ -1,6 +1,6 @@
 "use client"
 
-import { ShoppingBag, Gift, Truck, Calculator } from "lucide-react"
+import { ShoppingBag, Gift, Truck, Calculator } from 'lucide-react'
 
 interface OrderItem {
   id: string
@@ -27,6 +27,21 @@ interface Order {
 
 interface OrderDetailsProps {
   order: Order
+}
+
+// Function to generate 3-digit order code from order ID
+const generateOrderCode = (orderId: string): string => {
+  // Use the first 8 characters of the UUID and convert to a 3-digit number
+  const hashCode = orderId.substring(0, 8)
+  let hash = 0
+  for (let i = 0; i < hashCode.length; i++) {
+    const char = hashCode.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32-bit integer
+  }
+  // Ensure it's a positive 3-digit number (100-999)
+  const code = Math.abs(hash) % 900 + 100
+  return code.toString().padStart(3, '0')
 }
 
 const OrderDetails = ({ order }: OrderDetailsProps) => {
@@ -57,6 +72,9 @@ const OrderDetails = ({ order }: OrderDetailsProps) => {
 
   // Final total should match order.total_amount
   const finalTotal = order.total_amount
+
+  // Get order code (generate if not available)
+  const orderCode = order.order_code || generateOrderCode(order.id)
 
   return (
     <div className="bg-[#8f8578] rounded-lg shadow-md border border-[#1d2c36] p-6">
@@ -164,12 +182,15 @@ const OrderDetails = ({ order }: OrderDetailsProps) => {
           </span>
         </div>
 
-        {/* Order Code for reference */}
+        {/* Order ID and Code for reference */}
         <div className="flex justify-between text-sm pt-2 border-t border-[#1d2c36]/30">
           <span className="text-[#1d2c36]">Order Code</span>
-          <span className="font-mono text-xs text-[#1d2c36] opacity-75">
-            #{order.order_code || order.id.substring(0, 8)}
-          </span>
+          <span className="font-mono text-lg font-bold text-[#1d2c36]">#{orderCode}</span>
+        </div>
+        
+        <div className="flex justify-between text-sm">
+          <span className="text-[#1d2c36]">Order ID</span>
+          <span className="font-mono text-xs text-[#1d2c36] opacity-75">#{order.id.substring(0, 8)}</span>
         </div>
       </div>
     </div>

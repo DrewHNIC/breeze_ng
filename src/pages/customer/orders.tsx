@@ -1,3 +1,4 @@
+// pages/customer/orders.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -5,24 +6,14 @@ import { useRouter } from "next/router"
 import Link from "next/link"
 import { supabase } from "@/utils/supabase"
 import CustomerLayout from "@/components/CustomerLayout"
-import {
-  Loader2,
-  AlertCircle,
-  ShoppingBag,
-  Clock,
-  CheckCircle,
-  XCircle,
-  ChevronRight,
-  Search,
-  RefreshCw,
-} from "lucide-react"
+import { Loader2, AlertCircle, ShoppingBag, Clock, CheckCircle, XCircle, ChevronRight, Search, RefreshCw } from 'lucide-react'
 
 interface Order {
   id: string
-  order_code?: string
   status: string
   total_amount: number
   created_at: string
+  order_code: string
   vendor: {
     store_name: string
   }
@@ -32,17 +23,15 @@ interface Order {
 // Define the raw data structure from Supabase
 interface RawOrderData {
   id: string
-  order_code?: string
   status: string
   total_amount: number
   created_at: string
-  vendor:
-    | {
-        store_name: string
-      }
-    | {
-        store_name: string
-      }[]
+  order_code?: string
+  vendor: {
+    store_name: string
+  } | {
+    store_name: string
+  }[]
 }
 
 const OrdersPage = () => {
@@ -51,21 +40,34 @@ const OrdersPage = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [activeTab, setActiveTab] = useState<"active" | "completed">("active")
+  const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active')
   const [isRefreshing, setIsRefreshing] = useState(false)
 
   useEffect(() => {
     fetchOrders()
   }, [activeTab])
 
+  // Function to generate 3-digit order code from order ID
+  const generateOrderCode = (orderId: string): string => {
+    // Use the first 8 characters of the UUID and convert to a 3-digit number
+    const hashCode = orderId.substring(0, 8)
+    let hash = 0
+    for (let i = 0; i < hashCode.length; i++) {
+      const char = hashCode.charCodeAt(i)
+      hash = ((hash << 5) - hash) + char
+      hash = hash & hash // Convert to 32-bit integer
+    }
+    // Ensure it's a positive 3-digit number (100-999)
+    const code = Math.abs(hash) % 900 + 100
+    return code.toString().padStart(3, '0')
+  }
+
   const fetchOrders = async () => {
     try {
       setIsLoading(true)
       setError(null)
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         router.push("/login")
         return
@@ -73,22 +75,21 @@ const OrdersPage = () => {
 
       // Determine status filter based on active tab
       // IMPORTANT: Added 'pending' to the active tab filter to show newly created orders
-      const statusFilter =
-        activeTab === "active"
-          ? ["pending", "confirmed", "preparing", "ready", "out_for_delivery"]
-          : ["delivered", "cancelled"]
+      const statusFilter = activeTab === 'active' 
+        ? ['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery']
+        : ['delivered', 'cancelled']
 
       console.log("Fetching orders with status filter:", statusFilter)
 
-      // Fetch orders with vendor details and order_code
+      // Fetch orders with vendor details
       const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
         .select(`
           id, 
-          order_code,
           status, 
           total_amount, 
           created_at,
+          order_code,
           vendor:vendor_id(store_name)
         `)
         .eq("customer_id", session.user.id)
@@ -103,7 +104,7 @@ const OrdersPage = () => {
 
       console.log("Raw orders data:", ordersData)
 
-      // Fetch order items count for each order
+      // Fetch order items count for each order and update order codes if needed
       const ordersWithItemCount = await Promise.all(
         ordersData.map(async (order: RawOrderData) => {
           const { count, error: countError } = await supabase
@@ -111,29 +112,40 @@ const OrdersPage = () => {
             .select("id", { count: "exact" })
             .eq("order_id", order.id)
 
+          // Generate order code if it doesn't exist
+          let orderCode = order.order_code
+          if (!orderCode) {
+            orderCode = generateOrderCode(order.id)
+            // Update the database with the generated order code
+            await supabase
+              .from("orders")
+              .update({ order_code: orderCode })
+              .eq("id", order.id)
+          }
+
           // Extract vendor data safely
           let vendorName = "Unknown Restaurant"
-
+          
           if (order.vendor) {
             if (Array.isArray(order.vendor) && order.vendor.length > 0) {
               vendorName = order.vendor[0].store_name || vendorName
-            } else if (typeof order.vendor === "object" && "store_name" in order.vendor) {
+            } else if (typeof order.vendor === 'object' && 'store_name' in order.vendor) {
               vendorName = order.vendor.store_name || vendorName
             }
           }
 
           return {
             id: order.id,
-            order_code: order.order_code,
             status: order.status,
             total_amount: order.total_amount,
             created_at: order.created_at,
+            order_code: orderCode,
             vendor: {
-              store_name: vendorName,
+              store_name: vendorName
             },
-            item_count: count || 0,
+            item_count: count || 0
           } as Order
-        }),
+        })
       )
 
       console.log("Processed orders data:", ordersWithItemCount)
@@ -154,49 +166,49 @@ const OrdersPage = () => {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "pending":
+      case 'pending':
         return (
           <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded-full text-xs font-medium flex items-center">
             <Clock className="h-3 w-3 mr-1" />
             Pending
           </span>
         )
-      case "confirmed":
+      case 'confirmed':
         return (
           <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium flex items-center">
             <CheckCircle className="h-3 w-3 mr-1" />
             Confirmed
           </span>
         )
-      case "preparing":
+      case 'preparing':
         return (
           <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full text-xs font-medium flex items-center">
             <Clock className="h-3 w-3 mr-1" />
             Preparing
           </span>
         )
-      case "ready":
+      case 'ready':
         return (
           <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full text-xs font-medium flex items-center">
             <CheckCircle className="h-3 w-3 mr-1" />
             Ready
           </span>
         )
-      case "out_for_delivery":
+      case 'out_for_delivery':
         return (
           <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full text-xs font-medium flex items-center">
             <Clock className="h-3 w-3 mr-1" />
             Out for Delivery
           </span>
         )
-      case "delivered":
+      case 'delivered':
         return (
           <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium flex items-center">
             <CheckCircle className="h-3 w-3 mr-1" />
             Delivered
           </span>
         )
-      case "cancelled":
+      case 'cancelled':
         return (
           <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-medium flex items-center">
             <XCircle className="h-3 w-3 mr-1" />
@@ -204,17 +216,21 @@ const OrdersPage = () => {
           </span>
         )
       default:
-        return <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">{status}</span>
+        return (
+          <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
+            {status}
+          </span>
+        )
     }
   }
-
-  const filteredOrders = orders.filter((order) => {
+  
+  const filteredOrders = orders.filter(order => {
     if (!searchTerm) return true
-
+    
     const searchLower = searchTerm.toLowerCase()
     return (
       order.id.toLowerCase().includes(searchLower) ||
-      (order.order_code && order.order_code.toLowerCase().includes(searchLower)) ||
+      order.order_code.toLowerCase().includes(searchLower) ||
       order.vendor.store_name.toLowerCase().includes(searchLower) ||
       order.status.toLowerCase().includes(searchLower)
     )
@@ -228,13 +244,13 @@ const OrdersPage = () => {
             <ShoppingBag className="h-6 w-6 mr-2" />
             My Orders
           </h1>
-
-          <button
+          
+          <button 
             onClick={handleRefresh}
             className="flex items-center text-gray-600 hover:text-red-500"
             disabled={isRefreshing}
           >
-            <RefreshCw className={`h-5 w-5 mr-1 ${isRefreshing ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-5 w-5 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
@@ -247,7 +263,7 @@ const OrdersPage = () => {
             </div>
             <input
               type="text"
-              placeholder="Search orders by code, restaurant or status..."
+              placeholder="Search orders by ID, order code, restaurant or status..."
               className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -259,22 +275,26 @@ const OrdersPage = () => {
         <div className="flex border-b border-gray-200 mb-6">
           <button
             className={`py-2 px-4 font-medium text-sm ${
-              activeTab === "active" ? "text-red-500 border-b-2 border-red-500" : "text-gray-500 hover:text-gray-700"
+              activeTab === 'active'
+                ? 'text-red-500 border-b-2 border-red-500'
+                : 'text-gray-500 hover:text-gray-700'
             }`}
-            onClick={() => setActiveTab("active")}
+            onClick={() => setActiveTab('active')}
           >
             Active Orders
           </button>
           <button
             className={`py-2 px-4 font-medium text-sm ${
-              activeTab === "completed" ? "text-red-500 border-b-2 border-red-500" : "text-gray-500 hover:text-gray-700"
+              activeTab === 'completed'
+                ? 'text-red-500 border-b-2 border-red-500'
+                : 'text-gray-500 hover:text-gray-700'
             }`}
-            onClick={() => setActiveTab("completed")}
+            onClick={() => setActiveTab('completed')}
           >
             Order History
           </button>
         </div>
-
+        
         {isLoading ? (
           <div className="flex justify-center items-center py-20">
             <Loader2 className="h-12 w-12 animate-spin text-red-500" />
@@ -298,10 +318,10 @@ const OrdersPage = () => {
             </div>
             <h2 className="text-xl font-bold mb-2">No orders found</h2>
             <p className="text-gray-600 mb-6">
-              {activeTab === "active"
-                ? "You don't have any active orders at the moment."
-                : searchTerm
-                  ? "No orders match your search criteria."
+              {activeTab === 'active' 
+                ? "You don't have any active orders at the moment." 
+                : searchTerm 
+                  ? "No orders match your search criteria." 
                   : "You haven't completed any orders yet."}
             </p>
             <Link
@@ -314,22 +334,22 @@ const OrdersPage = () => {
         ) : (
           <div className="space-y-4">
             {filteredOrders.map((order) => (
-              <Link
-                key={order.id}
+              <Link 
+                key={order.id} 
                 href={`/customer/order-tracking?id=${order.id}`}
                 className="block bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-100 p-4"
               >
                 <div className="flex flex-col md:flex-row md:items-center justify-between">
                   <div className="mb-2 md:mb-0">
                     <div className="flex items-center">
-                      <h3 className="font-bold">Order #{order.order_code || order.id.substring(0, 8)}</h3>
+                      <h3 className="font-bold">Order #{order.order_code}</h3>
                       <span className="mx-2 text-gray-300">•</span>
                       <span className="text-sm text-gray-600">{new Date(order.created_at).toLocaleDateString()}</span>
                     </div>
                     <p className="text-gray-700">{order.vendor.store_name}</p>
                     <p className="text-sm text-gray-500">{order.item_count} items</p>
                   </div>
-
+                  
                   <div className="flex items-center justify-between md:justify-end w-full md:w-auto">
                     <div className="flex flex-col items-end">
                       <span className="font-bold">₦{order.total_amount.toLocaleString()}</span>

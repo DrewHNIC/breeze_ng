@@ -1,3 +1,4 @@
+// pages/customer/order-confirmation.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -6,7 +7,7 @@ import Link from "next/link"
 import { supabase } from "@/utils/supabase"
 import CustomerLayout from "@/components/CustomerLayout"
 import OrderDetails from "@/components/customer/OrderDetails"
-import { CheckCircle, ArrowRight, Loader2, AlertCircle } from "lucide-react"
+import { CheckCircle, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
 
 interface Order {
   id: string
@@ -32,36 +33,49 @@ interface VendorData {
   store_name: string
 }
 
+// Function to generate 3-digit order code from order ID
+const generateOrderCode = (orderId: string): string => {
+  // Use the first 8 characters of the UUID and convert to a 3-digit number
+  const hashCode = orderId.substring(0, 8)
+  let hash = 0
+  for (let i = 0; i < hashCode.length; i++) {
+    const char = hashCode.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32-bit integer
+  }
+  // Ensure it's a positive 3-digit number (100-999)
+  const code = Math.abs(hash) % 900 + 100
+  return code.toString().padStart(3, '0')
+}
+
 const OrderConfirmationPage = () => {
   const router = useRouter()
   const { id: orderId } = router.query
-
+  
   const [order, setOrder] = useState<Order | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
+  
   useEffect(() => {
     if (router.isReady && orderId) {
       fetchOrderDetails()
     } else if (router.isReady && !orderId) {
-      router.push("/customer/orders")
+      router.push('/customer/orders')
     }
   }, [router.isReady, orderId])
-
+  
   const fetchOrderDetails = async () => {
     try {
       setIsLoading(true)
       setError(null)
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+      
+      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         router.push("/login")
         return
       }
-
-      // Fetch order with vendor details and order_code
+      
+      // Fetch order with vendor details
       const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .select(`
@@ -76,57 +90,68 @@ const OrderConfirmationPage = () => {
         .eq("id", orderId)
         .eq("customer_id", session.user.id)
         .single()
-
+      
       if (orderError) {
         console.error("Error fetching order:", orderError)
         setError("Could not load order details. Please try again.")
         return
       }
-
+      
+      // Generate order code if it doesn't exist
+      let orderCode = orderData.order_code
+      if (!orderCode) {
+        orderCode = generateOrderCode(orderData.id)
+        // Update the database with the generated order code
+        await supabase
+          .from("orders")
+          .update({ order_code: orderCode })
+          .eq("id", orderData.id)
+      }
+      
       // Fetch order items
       const { data: itemsData, error: itemsError } = await supabase
         .from("order_items")
         .select("id, menu_item_id, name, price, quantity")
         .eq("order_id", orderId)
-
+      
       if (itemsError) {
         console.error("Error fetching order items:", itemsError)
         setError("Could not load order items. Please try again.")
         return
       }
-
+      
       // Process vendor data - it might come as an array from Supabase
       let vendorName = "Unknown Restaurant"
-
+      
       if (orderData.vendor) {
         if (Array.isArray(orderData.vendor)) {
           // If it's an array, take the first item with explicit type assertion
           if (orderData.vendor.length > 0) {
             // Use type assertion to tell TypeScript about the structure
-            const firstVendor = orderData.vendor[0] as unknown as VendorData
-            vendorName = firstVendor.store_name || vendorName
+            const firstVendor = orderData.vendor[0] as unknown as VendorData;
+            vendorName = firstVendor.store_name || vendorName;
           }
-        } else if (typeof orderData.vendor === "object") {
+        } else if (typeof orderData.vendor === 'object') {
           // If it's an object, use type assertion
-          const vendorObject = orderData.vendor as unknown as VendorData
-          vendorName = vendorObject.store_name || vendorName
+          const vendorObject = orderData.vendor as unknown as VendorData;
+          vendorName = vendorObject.store_name || vendorName;
         }
       }
-
+      
       // Combine order data with items
       const processedOrder: Order = {
         id: orderData.id,
-        order_code: orderData.order_code,
+        order_code: orderCode,
         status: orderData.status,
         total_amount: orderData.total_amount,
         created_at: orderData.created_at,
         payment_method: orderData.payment_method,
         vendor: {
-          store_name: vendorName,
+          store_name: vendorName
         },
-        items: itemsData,
+        items: itemsData
       }
-
+      
       setOrder(processedOrder)
     } catch (error) {
       console.error("Error in fetchOrderDetails:", error)
@@ -135,7 +160,7 @@ const OrderConfirmationPage = () => {
       setIsLoading(false)
     }
   }
-
+  
   if (isLoading) {
     return (
       <CustomerLayout title="Order Confirmation">
@@ -167,7 +192,7 @@ const OrderConfirmationPage = () => {
       </CustomerLayout>
     )
   }
-
+  
   return (
     <CustomerLayout title="Order Confirmation">
       <div className="container mx-auto px-4 py-8">
@@ -176,21 +201,15 @@ const OrderConfirmationPage = () => {
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold text-green-700 mb-2">Order Confirmed!</h1>
             <p className="text-green-600 mb-4">Your order has been placed successfully.</p>
-            <p className="text-gray-600 mb-2">
-              Order Number: <span className="font-bold">#{order.order_code || order.id.substring(0, 8)}</span>
-            </p>
+            <p className="text-gray-600 mb-2">Order Number: <span className="font-bold text-lg">#{order.order_code || generateOrderCode(order.id)}</span></p>
             <p className="text-gray-600">Placed on {new Date(order.created_at).toLocaleString()}</p>
           </div>
-
+          
           <div className="bg-white rounded-lg shadow-md border border-gray-100 p-6 mb-8">
             <h2 className="text-xl font-bold mb-4">Order Details</h2>
-            <p className="mb-2">
-              Restaurant: <span className="font-medium">{order.vendor.store_name}</span>
-            </p>
-            <p className="mb-4">
-              Status: <span className="font-medium capitalize">{order.status}</span>
-            </p>
-
+            <p className="mb-2">Restaurant: <span className="font-medium">{order.vendor.store_name}</span></p>
+            <p className="mb-4">Status: <span className="font-medium capitalize">{order.status}</span></p>
+            
             <OrderDetails order={order} />
           </div>
 
@@ -201,7 +220,7 @@ const OrderConfirmationPage = () => {
             >
               View All Orders
             </Link>
-
+            
             <Link
               href={`/customer/order-tracking?id=${order.id}`}
               className="bg-red-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-red-600 transition-colors flex items-center"
