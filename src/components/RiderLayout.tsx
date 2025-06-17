@@ -8,6 +8,7 @@ import Link from "next/link"
 import Head from "next/head"
 import { supabase } from "@/utils/supabase"
 import { Home, Package, Clock, User, LogOut, Menu, X, DollarSign, Bike } from "lucide-react"
+import { NotificationProvider } from "@/components/ui/notifications"
 
 interface RiderLayoutProps {
   children: React.ReactNode
@@ -63,7 +64,7 @@ const RiderLayout = ({ children, title = "Rider Dashboard" }: RiderLayoutProps) 
   ]
 
   return (
-    <>
+    <NotificationProvider>
       <Head>
         <title>{title} | Breeze Delivery</title>
       </Head>
@@ -163,7 +164,7 @@ const RiderLayout = ({ children, title = "Rider Dashboard" }: RiderLayoutProps) 
         {/* Main Content */}
         <main className="flex-1">{children}</main>
       </div>
-    </>
+    </NotificationProvider>
   )
 }
 
