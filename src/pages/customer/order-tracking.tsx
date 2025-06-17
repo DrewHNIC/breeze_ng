@@ -2,124 +2,115 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/router"
+import Link from "next/link"
 import { supabase } from "@/utils/supabase"
-import {
-  MapPin,
-  Package,
-  Clock,
-  Phone,
-  Navigation,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-  Copy,
-  Check,
-  Truck,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import RiderLayout from "@/components/RiderLayout"
+import CustomerLayout from "@/components/CustomerLayout"
+import OrderStatusTimeline from "@/components/customer/OrderStatusTimeline"
+import OrderDetails from "@/components/customer/OrderDetails"
+import { ArrowLeft, Loader2, AlertCircle, Phone, Clock, MapPin, Copy, Check, Store, Truck } from "lucide-react"
 
-// Define valid order statuses
-type OrderStatus =
-  | "pending"
-  | "confirmed"
-  | "preparing"
-  | "ready"
-  | "picked_up"
-  | "out_for_delivery"
-  | "delivered"
-  | "cancelled"
+interface Order {
+  id: string
+  order_code?: string
+  status: string
+  total_amount: number
+  original_amount?: number
+  discount_amount?: number
+  delivery_fee?: number
+  distance_km?: number
+  loyalty_points_redeemed?: number
+  created_at: string
+  updated_at: string
+  delivery_address: string
+  delivery_city?: string
+  delivery_state?: string
+  customer_id: string
+  vendor_id: string
+  rider_id: string | null
+  estimated_delivery_time: string | null
+  payment_method: string
+  payment_status: string
+  actual_delivery_time: string | null
+  contact_number: string
+  special_instructions: string | null
+  vendor: {
+    store_name: string
+    contact_phone: string
+  }
+  items: OrderItem[]
+}
 
 interface OrderItem {
   id: string
-  menu_item: {
-    name: string
-  }
+  menu_item_id: string
+  name: string
+  price: number
   quantity: number
-  unit_price: number
 }
 
-interface CurrentOrder {
-  id: string
-  created_at: string
-  total_amount: number
-  delivery_address: string
-  contact_number: string
-  special_instructions: string | null
-  status: OrderStatus
-  vendor_id: string
-  vendor: {
-    id: string
-    store_name: string
-    address: string
-    contact_phone: string
+// Function to generate 3-digit order code from order ID
+const generateOrderCode = (orderId: string): string => {
+  // Use the first 8 characters of the UUID and convert to a 3-digit number
+  const hashCode = orderId.substring(0, 8)
+  let hash = 0
+  for (let i = 0; i < hashCode.length; i++) {
+    const char = hashCode.charCodeAt(i)
+    hash = (hash << 5) - hash + char
+    hash = hash & hash // Convert to 32-bit integer
   }
-  customer: {
-    id: string
-    name: string
-    phone_number: string
-  }
-  items: OrderItem[]
-  estimated_earnings: number
+  // Ensure it's a positive 3-digit number (100-999)
+  const code = (Math.abs(hash) % 900) + 100
+  return code.toString().padStart(3, "0")
 }
 
-const CurrentDeliveryPage = () => {
+const OrderTrackingPage = () => {
   const router = useRouter()
-  const [currentOrder, setCurrentOrder] = useState<CurrentOrder | null>(null)
+  const { id: orderId } = router.query
+
+  const [order, setOrder] = useState<Order | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isUpdating, setIsUpdating] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [riderId, setRiderId] = useState<string | null>(null)
-  const [copiedVendor, setCopiedVendor] = useState(false)
-  const [copiedCustomer, setCopiedCustomer] = useState(false)
-  const [riderStatus, setRiderStatus] = useState<boolean>(false)
-  const [statusUpdateTime, setStatusUpdateTime] = useState<string | null>(null)
-  const [lastStatusUpdate, setLastStatusUpdate] = useState<string | null>(null)
-  const [notifications, setNotifications] = useState<
-    Array<{ id: string; title: string; description: string; type: string }>
-  >([])
-
-  // Simple notification system for this component
-  const addNotification = (notification: { title: string; description: string; type: string }) => {
-    const id = Math.random().toString(36).substr(2, 9)
-    const newNotification = { ...notification, id }
-    setNotifications((prev) => [...prev, newNotification])
-
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-      setNotifications((prev) => prev.filter((n) => n.id !== id))
-    }, 5000)
-  }
-
-  const removeNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id))
-  }
+  const [vendorPhone, setVendorPhone] = useState<string>("")
+  const [copied, setCopied] = useState(false)
+  const [customerId, setCustomerId] = useState<string | null>(null)
 
   useEffect(() => {
-    checkAuth()
-  }, [])
+    if (router.isReady && orderId) {
+      checkAuth()
+    }
+  }, [router.isReady, orderId])
 
   useEffect(() => {
-    if (riderId) {
-      fetchCurrentDelivery()
-      fetchRiderStatus()
+    if (customerId && orderId) {
+      fetchOrderDetails()
 
       // Set up real-time subscription for order updates
       const subscription = supabase
-        .channel("order-updates")
+        .channel("order-tracking")
         .on(
           "postgres_changes",
           {
             event: "UPDATE",
             schema: "public",
             table: "orders",
-            filter: `rider_id=eq.${riderId}`,
+            filter: `id=eq.${orderId}`,
           },
           (payload) => {
             console.log("Real-time order update received:", payload)
-            // Refresh the current delivery when status changes
-            fetchCurrentDelivery()
+            // Update the order state with new data
+            if (payload.new) {
+              setOrder((prevOrder) => {
+                if (prevOrder) {
+                  return {
+                    ...prevOrder,
+                    status: payload.new.status,
+                    updated_at: payload.new.updated_at,
+                    rider_id: payload.new.rider_id,
+                  }
+                }
+                return prevOrder
+              })
+            }
           },
         )
         .subscribe()
@@ -128,22 +119,7 @@ const CurrentDeliveryPage = () => {
         subscription.unsubscribe()
       }
     }
-  }, [riderId])
-
-  // Reset copy states after 2 seconds
-  useEffect(() => {
-    if (copiedVendor) {
-      const timer = setTimeout(() => setCopiedVendor(false), 2000)
-      return () => clearTimeout(timer)
-    }
-  }, [copiedVendor])
-
-  useEffect(() => {
-    if (copiedCustomer) {
-      const timer = setTimeout(() => setCopiedCustomer(false), 2000)
-      return () => clearTimeout(timer)
-    }
-  }, [copiedCustomer])
+  }, [customerId, orderId])
 
   const checkAuth = async () => {
     try {
@@ -156,795 +132,416 @@ const CurrentDeliveryPage = () => {
         return
       }
 
-      // Check if user is a rider
-      const { data, error } = await supabase.from("riders").select("id").eq("id", session.user.id).single()
+      // Check if user is a customer
+      const { data: customerData, error: customerError } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("id", session.user.id)
+        .single()
 
-      if (error || !data) {
+      if (customerError || !customerData) {
+        console.error("Error fetching customer data:", customerError)
         router.push("/login")
         return
       }
 
-      setRiderId(data.id)
+      setCustomerId(customerData.id)
     } catch (error) {
       console.error("Error in checkAuth:", error)
       setError("Authentication failed. Please try logging in again.")
     }
   }
 
-  const fetchRiderStatus = async () => {
-    if (!riderId) return
+  const fetchOrderDetails = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true)
+    setError(null)
 
     try {
-      const { data, error } = await supabase.from("riders").select("is_available").eq("id", riderId).single()
+      console.log("Fetching order details for order ID:", orderId)
 
-      if (error) {
-        console.error("Error fetching rider status:", error)
-        return
-      }
-
-      setRiderStatus(data.is_available)
-    } catch (error) {
-      console.error("Error in fetchRiderStatus:", error)
-    }
-  }
-
-  const toggleRiderStatus = async () => {
-    if (!riderId) return
-
-    try {
-      const newStatus = !riderStatus
-
-      const { error } = await supabase.from("riders").update({ is_available: newStatus }).eq("id", riderId)
-
-      if (error) {
-        console.error("Error updating rider status:", error)
-        addNotification({
-          title: "Status update failed",
-          description: "Could not update your availability status.",
-          type: "error",
-        })
-        return
-      }
-
-      setRiderStatus(newStatus)
-      setStatusUpdateTime(new Date().toLocaleTimeString())
-
-      addNotification({
-        title: "Status updated",
-        description: newStatus ? "You are now available for deliveries." : "You are now unavailable for deliveries.",
-        type: "success",
-      })
-    } catch (error) {
-      console.error("Error in toggleRiderStatus:", error)
-      addNotification({
-        title: "An error occurred",
-        description: "Failed to update your status.",
-        type: "error",
-      })
-    }
-  }
-
-  const fetchCurrentDelivery = async () => {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      console.log("Fetching current delivery...")
-
-      // Get the current active order for this rider
-      const { data, error } = await supabase
+      // Fetch order with all the detailed information
+      const { data: orderData, error: orderError } = await supabase
         .from("orders")
         .select(`
           id, 
-          created_at, 
-          total_amount, 
+          order_code,
+          status, 
+          total_amount,
+          original_amount,
+          discount_amount,
+          delivery_fee,
+          distance_km,
+          loyalty_points_redeemed,
+          created_at,
+          updated_at,
           delivery_address,
+          delivery_city,
+          delivery_state,
+          customer_id,
+          vendor_id,
+          rider_id,
+          estimated_delivery_time,
+          payment_method,
+          payment_status,
+          actual_delivery_time,
           contact_number,
           special_instructions,
-          status,
-          vendor_id,
-          customer_id,
-          items:order_items(
-            id, 
-            quantity, 
-            unit_price,
-            menu_item_id
+          vendor:vendors(
+            store_name
           )
         `)
-        .eq("rider_id", riderId)
-        .in("status", ["picked_up", "out_for_delivery"])
-        .order("created_at", { ascending: false })
-        .limit(1)
+        .eq("id", orderId)
+        .eq("customer_id", customerId)
         .single()
 
-      if (error) {
-        if (error.code === "PGRST116") {
-          // No current delivery
-          setCurrentOrder(null)
-        } else {
-          console.error("Error fetching current delivery:", error)
-          setError("Failed to load current delivery. Please try again.")
-        }
+      if (orderError) {
+        console.error("Error fetching order:", orderError)
+        setError("Could not find the order. Please try again.")
+        setIsLoading(false)
         return
       }
 
-      console.log("Current order data:", data)
+      console.log("Order data fetched:", orderData)
 
-      // Fetch vendor details
-      const { data: vendorData, error: vendorError } = await supabase
-        .from("vendors")
-        .select(`
-          id, 
-          store_name
-        `)
-        .eq("id", data.vendor_id)
-        .single()
-
-      console.log("Vendor data:", vendorData)
-
-      if (vendorError) {
-        console.error("Error fetching vendor:", vendorError)
+      // Generate order code if it doesn't exist
+      let orderCode = orderData.order_code
+      if (!orderCode) {
+        orderCode = generateOrderCode(orderData.id)
+        // Update the database with the generated order code
+        await supabase.from("orders").update({ order_code: orderCode }).eq("id", orderData.id)
       }
 
-      // Fetch vendor profile for address and contact phone
-      const { data: profileData, error: profileError } = await supabase
-        .from("vendor_profiles")
-        .select("address, contact_phone")
-        .eq("vendor_id", data.vendor_id)
-        .single()
-
-      console.log("Vendor profile data:", profileData)
-
-      if (profileError) {
-        console.error("Error fetching vendor profile:", profileError)
-      }
-
-      // Fetch customer details
-      const { data: customerData, error: customerError } = await supabase
-        .from("customers")
-        .select("id, name, phone_number")
-        .eq("id", data.customer_id)
-        .single()
-
-      console.log("Customer data:", customerData)
-
-      if (customerError) {
-        console.error("Error fetching customer:", customerError)
-      }
-
-      // Fetch menu items for each order item
-      const menuItemPromises = data.items.map(async (item) => {
-        const { data: menuItemData, error: menuItemError } = await supabase
-          .from("menu_items")
-          .select("name")
-          .eq("id", item.menu_item_id)
+      // Fetch vendor contact phone from vendor_profiles
+      let vendorContactPhone = ""
+      if (orderData.vendor_id) {
+        const { data: vendorProfileData, error: vendorProfileError } = await supabase
+          .from("vendor_profiles")
+          .select("contact_phone")
+          .eq("vendor_id", orderData.vendor_id)
           .single()
 
-        if (menuItemError) {
-          console.error("Error fetching menu item:", menuItemError)
-          return {
-            ...item,
-            menu_item: { name: "Unknown Item" },
+        if (!vendorProfileError && vendorProfileData) {
+          vendorContactPhone = vendorProfileData.contact_phone || ""
+          setVendorPhone(vendorContactPhone)
+        }
+      }
+
+      // Fetch order items with menu item details
+      const { data: itemsData, error: itemsError } = await supabase
+        .from("order_items")
+        .select(`
+          id,
+          menu_item_id,
+          quantity,
+          unit_price,
+          menu_items(name)
+        `)
+        .eq("order_id", orderId)
+
+      if (itemsError) {
+        console.error("Error fetching order items:", itemsError)
+        setError("Could not load order items. Please try again.")
+        setIsLoading(false)
+        return
+      }
+
+      console.log("Order items fetched:", itemsData)
+
+      // Transform the items data
+      const transformedItems = itemsData.map((item: any) => {
+        let itemName = "Unknown Item"
+
+        // Handle menu_items data safely
+        if (item.menu_items) {
+          if (Array.isArray(item.menu_items) && item.menu_items.length > 0) {
+            // If it's an array, take the first item's name
+            itemName = item.menu_items[0]?.name || itemName
+          } else if (typeof item.menu_items === "object" && item.menu_items !== null) {
+            // If it's an object, try to get the name property
+            itemName = item.menu_items.name || itemName
           }
         }
 
         return {
-          ...item,
-          menu_item: { name: menuItemData.name },
+          id: item.id,
+          menu_item_id: item.menu_item_id,
+          name: itemName,
+          price: item.unit_price,
+          quantity: item.quantity,
         }
       })
 
-      const processedItems = await Promise.all(menuItemPromises)
+      // Extract vendor data safely
+      let vendorName = "Unknown Restaurant"
 
-      // Construct the processed order
-      const processedOrder: CurrentOrder = {
-        ...data,
-        vendor: {
-          id: vendorData?.id || "",
-          store_name: vendorData?.store_name || "Restaurant",
-          address: profileData?.address || "Address not available",
-          contact_phone: profileData?.contact_phone || "",
-        },
-        customer: {
-          id: customerData?.id || "",
-          name: customerData?.name || "Customer",
-          phone_number: customerData?.phone_number || data.contact_number || "",
-        },
-        items: processedItems,
-        estimated_earnings: calculateDeliveryFee(data.total_amount),
+      if (orderData.vendor) {
+        if (Array.isArray(orderData.vendor) && orderData.vendor.length > 0) {
+          vendorName = orderData.vendor[0].store_name || vendorName
+        } else if (typeof orderData.vendor === "object") {
+          // Check if it's a non-array object with the expected properties
+          const vendor = orderData.vendor as { store_name?: string }
+          vendorName = vendor.store_name || vendorName
+        }
       }
 
-      console.log("Processed order:", processedOrder)
+      // Combine order and items
+      const completeOrder: Order = {
+        ...orderData,
+        order_code: orderCode,
+        vendor: {
+          store_name: vendorName,
+          contact_phone: vendorContactPhone,
+        },
+        items: transformedItems,
+      }
 
-      setCurrentOrder(processedOrder)
+      console.log("Complete order assembled:", completeOrder)
+      setOrder(completeOrder)
     } catch (error) {
-      console.error("Error in fetchCurrentDelivery:", error)
+      console.error("Error in fetchOrderDetails:", error)
       setError("An unexpected error occurred. Please try again.")
     } finally {
-      setIsLoading(false)
+      if (showLoading) setIsLoading(false)
     }
   }
 
-  const updateOrderStatus = async (newStatus: OrderStatus) => {
-    if (!currentOrder || !riderId) return
+  const getEstimatedDeliveryTime = () => {
+    if (!order) return null
 
-    try {
-      setIsUpdating(true)
-
-      // Log the update request for debugging
-      console.log("Updating order status:", {
-        order_id: currentOrder.id,
-        rider_id: riderId,
-        new_status: newStatus,
-        current_status: currentOrder.status,
-      })
-
-      const { error } = await supabase
-        .from("orders")
-        .update({
-          status: newStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", currentOrder.id)
-
-      if (error) {
-        console.error("Error updating order status:", error)
-        addNotification({
-          title: "Failed to update status",
-          description: "Please try again. " + error.message,
-          type: "error",
-        })
-        return
-      }
-
-      // Record the time of status update
-      const updateTime = new Date().toLocaleTimeString()
-      setLastStatusUpdate(`Order status updated to ${newStatus.replace("_", " ")} at ${updateTime}`)
-
-      // If order is completed, update rider stats
-      if (newStatus === "delivered") {
-        // Calculate delivery fee (same logic as in available-orders page)
-        const deliveryFee = calculateDeliveryFee(currentOrder.total_amount)
-
-        // Update rider stats
-        await supabase.rpc("update_rider_stats", {
-          rider_id: riderId,
-          delivery_fee: deliveryFee,
-        })
-
-        // Add to rider earnings
-        await supabase.from("rider_earnings").insert({
-          rider_id: riderId,
-          order_id: currentOrder.id,
-          amount: deliveryFee,
-          status: "pending",
-        })
-
-        addNotification({
-          title: "Delivery completed!",
-          description: `You earned ₦${deliveryFee.toLocaleString()} from this delivery.`,
-          type: "success",
-        })
-
-        // Redirect to available orders
-        router.push("/rider/available-orders")
-      } else {
-        // Refresh the current delivery
-        fetchCurrentDelivery()
-
-        addNotification({
-          title: "Status updated",
-          description: `Order is now ${newStatus.replace("_", " ")}.`,
-          type: "success",
-        })
-      }
-    } catch (error) {
-      console.error("Error in updateOrderStatus:", error)
-      addNotification({
-        title: "An error occurred",
-        description: "Failed to update the order status.",
-        type: "error",
-      })
-    } finally {
-      setIsUpdating(false)
+    if (order.estimated_delivery_time) {
+      return new Date(order.estimated_delivery_time)
     }
+
+    // If no estimated time is set, calculate based on order creation time
+    // Assuming average delivery time is 45 minutes
+    const createdAt = new Date(order.created_at)
+    return new Date(createdAt.getTime() + 45 * 60000)
   }
 
-  const copyToClipboard = (text: string, type: "vendor" | "customer") => {
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        if (type === "vendor") {
-          setCopiedVendor(true)
-        } else {
-          setCopiedCustomer(true)
-        }
-        addNotification({
-          title: "Copied to clipboard",
-          description: "Phone number copied to clipboard",
-          type: "success",
-        })
-      })
-      .catch((err) => {
-        console.error("Failed to copy: ", err)
-        addNotification({
-          title: "Failed to copy",
-          description: "Please try again",
-          type: "error",
-        })
-      })
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
   }
 
-  const calculateDeliveryFee = (amount: number) => {
-    // This is a placeholder calculation - adjust based on your business logic
-    const baseFee = 500 // ₦500 base fee
-    const percentageFee = amount * 0.05 // 5% of order amount
-    return Math.min(Math.max(baseFee + percentageFee, 700), 2000) // Between ₦700 and ₦2000
+  const formatDeliveryAddress = () => {
+    if (!order) return ""
+
+    const parts = [order.delivery_address]
+    if (order.delivery_city) parts.push(order.delivery_city)
+    if (order.delivery_state) parts.push(order.delivery_state)
+
+    return parts.join(", ")
   }
 
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString)
-      return date.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "numeric",
-        hour12: true,
-      })
-    } catch (e) {
-      return dateString
-    }
-  }
-
-  const getNextAction = () => {
-    if (!currentOrder) return null
-
-    switch (currentOrder.status) {
-      case "picked_up":
-        return {
-          label: "Mark as Out for Delivery",
-          action: () => updateOrderStatus("out_for_delivery"),
-          icon: Truck,
-        }
-      case "out_for_delivery":
-        return {
-          label: "Mark as Delivered",
-          action: () => updateOrderStatus("delivered"),
-          icon: CheckCircle,
-        }
-      default:
-        return null
-    }
-  }
-
-  const getStatusSteps = () => {
-    const steps = [
-      { label: "Picked Up", value: "picked_up", status: "" },
-      { label: "Out for Delivery", value: "out_for_delivery", status: "" },
-      { label: "Delivered", value: "delivered", status: "" },
-    ]
-
-    if (!currentOrder) return steps
-
-    const currentIndex = steps.findIndex((step) => step.value === currentOrder.status)
-    return steps.map((step, index) => ({
-      ...step,
-      status: index < currentIndex ? "completed" : index === currentIndex ? "current" : "upcoming",
-    }))
-  }
-
-  if (isLoading) {
-    return (
-      <RiderLayout title="Current Delivery">
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="h-12 w-12 animate-spin text-[#b9c6c8]" />
-        </div>
-      </RiderLayout>
-    )
-  }
-
-  if (error) {
-    return (
-      <RiderLayout title="Current Delivery">
-        <div className="container mx-auto px-4 py-8">
-          <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-lg p-6 text-center shadow-lg">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h2 className="text-lg font-bold text-red-700 mb-2">Error Loading Delivery</h2>
-            <p className="text-red-600 mb-4">{error}</p>
-            <Button
-              onClick={() => fetchCurrentDelivery()}
-              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
-            >
-              Try Again
-            </Button>
-          </div>
-        </div>
-      </RiderLayout>
-    )
-  }
-
-  if (!currentOrder) {
-    return (
-      <RiderLayout title="Current Delivery">
-        {/* Notifications */}
-        {notifications.length > 0 && (
-          <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className={`border rounded-lg p-4 shadow-lg animate-in slide-in-from-right duration-300 ${
-                  notification.type === "success"
-                    ? "bg-gradient-to-r from-green-50 to-green-100 border-green-200"
-                    : notification.type === "error"
-                      ? "bg-gradient-to-r from-red-50 to-red-100 border-red-200"
-                      : "bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-                }`}
-              >
-                <div className="flex items-start">
-                  <div className="flex-shrink-0">
-                    {notification.type === "success" && <CheckCircle className="h-5 w-5 text-green-500" />}
-                    {notification.type === "error" && <AlertCircle className="h-5 w-5 text-red-500" />}
-                  </div>
-                  <div className="ml-3 flex-1">
-                    <h3 className="text-sm font-medium text-gray-900">{notification.title}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{notification.description}</p>
-                  </div>
-                  <button
-                    onClick={() => removeNotification(notification.id)}
-                    className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="container mx-auto px-4 py-8">
-          {/* Rider Status Banner */}
-          <div
-            className={`mb-4 p-4 rounded-lg flex items-center justify-between shadow-md ${
-              riderStatus
-                ? "bg-gradient-to-r from-green-50 to-green-100 border border-green-200"
-                : "bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200"
-            }`}
-          >
-            <div className="flex items-center">
-              {riderStatus ? (
-                <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-              ) : (
-                <AlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
-              )}
-              <div>
-                <span className={riderStatus ? "text-green-700" : "text-yellow-700"}>
-                  {riderStatus
-                    ? "You are currently available for deliveries"
-                    : "You are currently unavailable for deliveries"}
-                </span>
-                {statusUpdateTime && (
-                  <p className="text-xs text-gray-500 mt-0.5">Status updated at {statusUpdateTime}</p>
-                )}
-              </div>
-            </div>
-            <Button
-              onClick={() => toggleRiderStatus()}
-              variant="ghost"
-              size="sm"
-              className={`${
-                riderStatus
-                  ? "bg-green-100 text-green-800 hover:bg-green-200"
-                  : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-              } transition-all duration-200`}
-            >
-              {riderStatus ? "Go Offline" : "Go Online"}
-            </Button>
-          </div>
-
-          <div className="bg-gradient-to-r from-[#8f8578] to-[#7a7066] rounded-lg shadow-lg p-8 text-center">
-            <Package className="h-12 w-12 text-[#b9c6c8] mx-auto mb-3" />
-            <h3 className="text-lg font-medium mb-1 text-[#1d2c36]">No Active Delivery</h3>
-            <p className="text-[#1d2c36]/70 mb-4">You don't have any active deliveries at the moment.</p>
-            <Button
-              onClick={() => router.push("/rider/available-orders")}
-              className="bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] text-[#1d2c36] hover:from-[#a8b5b8] hover:to-[#97a4a7] border-none"
-            >
-              Find Available Orders
-            </Button>
-          </div>
-        </div>
-      </RiderLayout>
-    )
-  }
-
-  const nextAction = getNextAction()
-  const statusSteps = getStatusSteps()
+  const estimatedDeliveryTime = getEstimatedDeliveryTime()
 
   return (
-    <RiderLayout title="Current Delivery">
-      {/* Notifications */}
-      {notifications.length > 0 && (
-        <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm">
-          {notifications.map((notification) => (
-            <div
-              key={notification.id}
-              className={`border rounded-lg p-4 shadow-lg animate-in slide-in-from-right duration-300 ${
-                notification.type === "success"
-                  ? "bg-gradient-to-r from-green-50 to-green-100 border-green-200"
-                  : notification.type === "error"
-                    ? "bg-gradient-to-r from-red-50 to-red-100 border-red-200"
-                    : "bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200"
-              }`}
-            >
-              <div className="flex items-start">
-                <div className="flex-shrink-0">
-                  {notification.type === "success" && <CheckCircle className="h-5 w-5 text-green-500" />}
-                  {notification.type === "error" && <AlertCircle className="h-5 w-5 text-red-500" />}
-                </div>
-                <div className="ml-3 flex-1">
-                  <h3 className="text-sm font-medium text-gray-900">{notification.title}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{notification.description}</p>
-                </div>
-                <button
-                  onClick={() => removeNotification(notification.id)}
-                  className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
+    <CustomerLayout title="Track Order">
       <div className="container mx-auto px-4 py-6">
-        {/* Rider Status Banner */}
-        <div
-          className={`mb-4 p-4 rounded-lg flex items-center justify-between shadow-md ${
-            riderStatus
-              ? "bg-gradient-to-r from-green-50 to-green-100 border border-green-200"
-              : "bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200"
-          }`}
-        >
-          <div className="flex items-center">
-            {riderStatus ? (
-              <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
-            )}
-            <div>
-              <span className={riderStatus ? "text-green-700" : "text-yellow-700"}>
-                {riderStatus
-                  ? "You are currently available for deliveries"
-                  : "You are currently unavailable for deliveries"}
-              </span>
-              {statusUpdateTime && <p className="text-xs text-gray-500 mt-0.5">Status updated at {statusUpdateTime}</p>}
-            </div>
-          </div>
-          <Button
-            onClick={() => toggleRiderStatus()}
-            variant="ghost"
-            size="sm"
-            className={`${
-              riderStatus
-                ? "bg-green-100 text-green-800 hover:bg-green-200"
-                : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-            } transition-all duration-200`}
-          >
-            {riderStatus ? "Go Offline" : "Go Online"}
-          </Button>
+        <div className="flex items-center mb-6">
+          <Link href="/customer/orders" className="mr-4">
+            <ArrowLeft className="h-5 w-5 text-[#1d2c36] hover:text-[#b9c6c8] transition-colors" />
+          </Link>
+          <h1 className="text-2xl font-bold text-[#1d2c36]">Track Order</h1>
         </div>
 
-        {/* Status Update Notification */}
-        {lastStatusUpdate && (
-          <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg flex items-center shadow-md">
-            <CheckCircle className="h-5 w-5 text-blue-500 mr-2" />
-            <p className="text-blue-700 text-sm">{lastStatusUpdate}</p>
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20">
+            <Loader2 className="h-12 w-12 animate-spin text-[#b9c6c8]" />
           </div>
-        )}
-
-        <h1 className="text-2xl font-bold mb-6 text-[#1d2c36]">Current Delivery</h1>
-
-        {/* Status Stepper */}
-        <Card className="mb-6 bg-gradient-to-r from-[#8f8578] to-[#7a7066] border-none shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              {statusSteps.map((step, index) => (
-                <div key={step.value} className="flex flex-col items-center">
-                  <div
-                    className={`flex items-center justify-center w-8 h-8 rounded-full mb-1 ${
-                      step.status === "completed"
-                        ? "bg-green-500 text-white"
-                        : step.status === "current"
-                          ? "bg-[#b9c6c8] text-[#1d2c36]"
-                          : "bg-[#1d2c36]/20 text-[#1d2c36]/50"
-                    }`}
-                  >
-                    {step.status === "completed" ? <CheckCircle className="h-5 w-5" /> : <span>{index + 1}</span>}
-                  </div>
-                  <span
-                    className={`text-xs text-center ${
-                      step.status === "completed"
-                        ? "text-green-600"
-                        : step.status === "current"
-                          ? "text-[#1d2c36] font-medium"
-                          : "text-[#1d2c36]/50"
-                    }`}
-                  >
-                    {step.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div className="relative mt-2">
-              <div className="absolute top-1/2 left-4 right-4 h-1 bg-[#1d2c36]/20 -translate-y-1/2"></div>
-              <div
-                className="absolute top-1/2 left-4 h-1 bg-green-500 -translate-y-1/2"
-                style={{
-                  width: `${
-                    currentOrder.status === "picked_up"
-                      ? "0%"
-                      : currentOrder.status === "out_for_delivery"
-                        ? "50%"
-                        : "100%"
-                  }`,
-                }}
-              ></div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Order Details */}
-        <Card className="mb-6 bg-gradient-to-r from-[#8f8578] to-[#7a7066] border-none shadow-lg">
-          <CardHeader className="bg-[#b9c6c8]/20 border-b border-[#b9c6c8]/30 p-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="font-bold text-lg text-[#1d2c36]">{currentOrder.vendor.store_name}</h2>
-                <p className="text-sm text-[#1d2c36]/70">Order #{currentOrder.id.substring(0, 8)}</p>
-              </div>
-              <div className="text-right">
-                <p className="font-medium text-green-600">₦{currentOrder.estimated_earnings.toLocaleString()}</p>
-                <p className="text-sm text-[#1d2c36]/70">Your Earnings</p>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="p-6">
-            <div className="space-y-4">
-              <div className="flex">
-                <Clock className="h-5 w-5 text-[#b9c6c8] mr-3 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-[#1d2c36]">Order Time</p>
-                  <p className="text-sm text-[#1d2c36]/70">{formatDate(currentOrder.created_at)}</p>
-                </div>
-              </div>
-
-              <div className="flex">
-                <MapPin className="h-5 w-5 text-[#b9c6c8] mr-3 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-[#1d2c36]">Pickup Location</p>
-                  <p className="text-sm text-[#1d2c36]/70">{currentOrder.vendor.address}</p>
-
-                  {currentOrder.vendor.contact_phone && (
-                    <div className="mt-1">
-                      <p className="text-sm font-medium text-[#1d2c36]">Restaurant Phone:</p>
-                      <div className="flex items-center mt-1">
-                        <Phone className="h-3 w-3 text-[#b9c6c8] mr-1" />
-                        <span className="text-sm text-[#1d2c36]/70">{currentOrder.vendor.contact_phone}</span>
-                        <Button
-                          onClick={() => copyToClipboard(currentOrder.vendor.contact_phone, "vendor")}
-                          variant="ghost"
-                          size="sm"
-                          className="ml-2 p-1 text-[#b9c6c8] hover:text-[#a8b5b8] rounded-full hover:bg-[#b9c6c8]/10 h-auto"
-                        >
-                          {copiedVendor ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex">
-                <MapPin className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-[#1d2c36]">Delivery Location</p>
-                  <p className="text-sm text-[#1d2c36]/70">{currentOrder.delivery_address}</p>
-
-                  {(currentOrder.customer.phone_number || currentOrder.contact_number) && (
-                    <div className="mt-1">
-                      <p className="text-sm font-medium text-[#1d2c36]">Customer Phone:</p>
-                      <div className="flex items-center mt-1">
-                        <Phone className="h-3 w-3 text-[#b9c6c8] mr-1" />
-                        <span className="text-sm text-[#1d2c36]/70">
-                          {currentOrder.customer.phone_number || currentOrder.contact_number}
-                        </span>
-                        <Button
-                          onClick={() =>
-                            copyToClipboard(
-                              currentOrder.customer.phone_number || currentOrder.contact_number,
-                              "customer",
-                            )
-                          }
-                          variant="ghost"
-                          size="sm"
-                          className="ml-2 p-1 text-[#b9c6c8] hover:text-[#a8b5b8] rounded-full hover:bg-[#b9c6c8]/10 h-auto"
-                        >
-                          {copiedCustomer ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="mt-2">
-                    <a
-                      href={`https://maps.google.com/?q=${encodeURIComponent(currentOrder.delivery_address)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-sm text-[#b9c6c8] hover:text-[#a8b5b8]"
-                    >
-                      <Navigation className="h-3 w-3 mr-1" />
-                      Navigate
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-              {currentOrder.special_instructions && (
-                <div className="bg-yellow-50/80 p-3 rounded-md">
-                  <p className="text-sm text-yellow-800">
-                    <span className="font-medium">Special Instructions: </span>
-                    {currentOrder.special_instructions}
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Order Items */}
-        <Card className="mb-6 bg-gradient-to-r from-[#8f8578] to-[#7a7066] border-none shadow-lg">
-          <CardHeader className="p-6 border-b border-[#b9c6c8]/30">
-            <h3 className="font-medium text-[#1d2c36]">Order Items ({currentOrder.items.length})</h3>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ul className="divide-y divide-[#b9c6c8]/20">
-              {currentOrder.items.map((item) => (
-                <li key={item.id} className="p-6 flex justify-between">
+        ) : error ? (
+          <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-lg p-6 text-center">
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h2 className="text-lg font-bold text-red-700 mb-2">Error Loading Order</h2>
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={() => fetchOrderDetails()}
+              className="bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] text-[#1d2c36] px-6 py-2 rounded-lg font-medium hover:from-[#a8b5b8] hover:to-[#97a4a7] transition-all duration-300"
+            >
+              Try Again
+            </button>
+          </div>
+        ) : !order ? (
+          <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 rounded-lg p-6 text-center">
+            <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+            <h2 className="text-lg font-bold text-yellow-700 mb-2">Order Not Found</h2>
+            <p className="text-yellow-600 mb-4">We couldn't find the order you're looking for.</p>
+            <Link
+              href="/customer/orders"
+              className="bg-gradient-to-r from-[#1d2c36] to-[#2a3f4d] text-[#8f8578] px-6 py-2 rounded-lg font-medium hover:from-[#2a3f4d] hover:to-[#3a4f5d] transition-all duration-300 inline-block"
+            >
+              View All Orders
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column - Order Status */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Order ID and Restaurant */}
+              <div className="bg-[#8f8578] rounded-lg shadow-md border border-[#1d2c36] p-6">
+                <div className="flex justify-between items-start mb-4">
                   <div>
-                    <p className="font-medium text-[#1d2c36]">{item.menu_item.name}</p>
-                    <p className="text-sm text-[#1d2c36]/70">Qty: {item.quantity}</p>
+                    <h2 className="text-xl font-bold text-[#1d2c36]">
+                      Order #{order.order_code || generateOrderCode(order.id)}
+                    </h2>
+                    <p className="text-[#1d2c36] opacity-75">{new Date(order.created_at).toLocaleString()}</p>
                   </div>
-                  <div className="flex items-center">
-                    <Package className="h-4 w-4 text-[#b9c6c8] mr-1" />
-                    <span className="text-sm text-[#1d2c36]/70">Item</span>
+                  <div className="text-right">
+                    <h3 className="font-bold text-lg text-[#1d2c36]">{order.vendor.store_name}</h3>
+                    <p className="text-[#1d2c36] opacity-75">
+                      {order.status === "delivered" ? "Delivered" : "Estimated delivery by"}:
+                    </p>
+                    <p className="font-medium text-[#1d2c36]">
+                      {estimatedDeliveryTime
+                        ? estimatedDeliveryTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                        : "Calculating..."}
+                    </p>
                   </div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+                </div>
 
-        {/* Action Button */}
-        {nextAction && (
-          <Button
-            onClick={() => nextAction.action()}
-            disabled={isUpdating}
-            className="w-full bg-gradient-to-r from-[#b9c6c8] to-[#a8b5b8] text-[#1d2c36] hover:from-[#a8b5b8] hover:to-[#97a4a7] border-none font-medium"
-          >
-            {isUpdating ? (
-              <Loader2 className="h-5 w-5 animate-spin mr-2" />
-            ) : (
-              <nextAction.icon className="h-5 w-5 mr-2" />
-            )}
-            {isUpdating ? "Updating..." : nextAction.label}
-          </Button>
+                {/* Order Status Timeline */}
+                <OrderStatusTimeline status={order.status} createdAt={order.created_at} />
+              </div>
+
+              {/* Delivery Information */}
+              <div className="bg-[#8f8578] rounded-lg shadow-md border border-[#1d2c36] p-6">
+                <h2 className="text-xl font-bold mb-4 text-[#1d2c36]">Delivery Information</h2>
+
+                <div className="flex items-start mb-4">
+                  <MapPin className="h-5 w-5 text-[#1d2c36] mr-2 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-[#1d2c36]">Delivery Address</p>
+                    <p className="text-[#1d2c36] opacity-75">{formatDeliveryAddress()}</p>
+                    {order.special_instructions && (
+                      <p className="mt-1 text-sm text-[#1d2c36] opacity-75">
+                        <span className="font-medium">Instructions:</span> {order.special_instructions}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-start mb-4">
+                  <Clock className="h-5 w-5 text-[#1d2c36] mr-2 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-[#1d2c36]">Estimated Delivery Time</p>
+                    <p className="text-[#1d2c36] opacity-75">
+                      {estimatedDeliveryTime
+                        ? estimatedDeliveryTime.toLocaleString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                          })
+                        : "Calculating..."}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Distance Information */}
+                {order.distance_km && (
+                  <div className="flex items-start">
+                    <Truck className="h-5 w-5 text-[#1d2c36] mr-2 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-[#1d2c36]">Delivery Distance</p>
+                      <p className="text-[#1d2c36] opacity-75">{order.distance_km.toFixed(1)} km from restaurant</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Delivery Status Message */}
+              <div className="bg-[#8f8578] rounded-lg shadow-md border border-[#1d2c36] p-6">
+                <h2 className="text-xl font-bold mb-4 text-[#1d2c36]">Delivery Status</h2>
+
+                <div className="bg-[#1d2c36] border border-[#b9c6c8] rounded-lg p-4">
+                  <p className="text-[#8f8578]">
+                    {order.status === "pending" && "Your order has been placed and is awaiting confirmation."}
+                    {order.status === "confirmed" && "Your order has been confirmed and is being prepared."}
+                    {order.status === "preparing" && "Your order is being prepared by the restaurant."}
+                    {order.status === "ready" && "Your order is ready and waiting for pickup by a delivery partner."}
+                    {order.status === "picked_up" && "Your order has been picked up and is on the way to you."}
+                    {order.status === "out_for_delivery" && "Your order is out for delivery and will arrive soon."}
+                    {order.status === "delivered" && "Your order has been delivered. Enjoy your meal!"}
+                    {order.status === "cancelled" && "This order has been cancelled."}
+                  </p>
+                  {(order.status === "pending" ||
+                    order.status === "confirmed" ||
+                    order.status === "preparing" ||
+                    order.status === "ready") && (
+                    <p className="mt-2 text-sm text-[#b9c6c8]">
+                      A delivery partner will be assigned to your order soon.
+                    </p>
+                  )}
+                  {(order.status === "picked_up" || order.status === "out_for_delivery") && (
+                    <p className="mt-2 text-sm text-[#b9c6c8]">
+                      Your delivery partner is on the way. You can track their progress in real-time.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column - Order Details */}
+            <div className="lg:col-span-1">
+              <div className="sticky top-24">
+                <OrderDetails order={order} />
+
+                {/* Contact Restaurant */}
+                <div className="bg-[#8f8578] rounded-lg shadow-md border border-[#1d2c36] p-6 mt-6">
+                  <h2 className="font-bold mb-4 flex items-center text-[#1d2c36]">
+                    <Store className="h-5 w-5 mr-2 text-[#1d2c36]" />
+                    Restaurant Contact
+                  </h2>
+
+                  <div className="mb-4">
+                    <p className="text-sm text-[#1d2c36] opacity-75 mb-1">Restaurant Name</p>
+                    <p className="font-medium text-[#1d2c36]">{order.vendor.store_name}</p>
+                  </div>
+
+                  {order.vendor.contact_phone && (
+                    <div>
+                      <p className="text-sm text-[#1d2c36] opacity-75 mb-1">Phone Number</p>
+                      <div className="flex items-center justify-between bg-[#1d2c36] p-3 rounded-lg">
+                        <span className="font-medium text-[#8f8578]">{order.vendor.contact_phone}</span>
+                        <button
+                          onClick={() => copyToClipboard(order.vendor.contact_phone)}
+                          className="text-[#b9c6c8] hover:text-[#8f8578] transition-colors"
+                          aria-label="Copy phone number"
+                        >
+                          {copied ? <Check className="h-5 w-5 text-green-400" /> : <Copy className="h-5 w-5" />}
+                        </button>
+                      </div>
+                      <p className="text-xs text-[#1d2c36] opacity-60 mt-2">
+                        Click the copy icon to copy the phone number, then dial it on your phone.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mt-4 pt-4 border-t border-[#1d2c36]">
+                    <p className="text-sm text-[#1d2c36] opacity-75 mb-2">
+                      If you have any questions about your order, please contact the restaurant directly.
+                    </p>
+                    {order.vendor.contact_phone && (
+                      <a
+                        href={`tel:${order.vendor.contact_phone}`}
+                        className="bg-gradient-to-r from-[#1d2c36] to-[#2a3f4d] text-[#8f8578] w-full py-2 rounded-lg font-medium hover:from-[#2a3f4d] hover:to-[#3a4f5d] transition-all duration-300 flex items-center justify-center"
+                      >
+                        <Phone className="h-4 w-4 mr-2" />
+                        Call Restaurant
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
-    </RiderLayout>
+    </CustomerLayout>
   )
 }
 
-export default CurrentDeliveryPage
+export default OrderTrackingPage
