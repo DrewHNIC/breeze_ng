@@ -463,7 +463,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
               {currentOrder.status === "pending" && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
                   <p className="text-yellow-700 text-sm">
-                    Set preparation time to automatically update status to "Preparing"
+                    Set preparation time to automatically update order status to "Preparing"
                   </p>
                 </div>
               )}
@@ -548,7 +548,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
                   {(currentOrder.timer_adjustments_count || 0) === 0 && " (You can adjust the time twice)"}
                   {(currentOrder.timer_adjustments_count || 0) === 1 && " (One more adjustment allowed)"}
                   {(currentOrder.timer_adjustments_count || 0) >= 2 &&
-                    " (No more adjustments allowed - timer will countdown to expiry)"}
+                    " (No more adjustments allowed for this order - timer will countdown to expiry)"}
                 </p>
                 {currentOrder.status === "pending" && (
                   <p className="text-yellow-400">⏰ Set an estimated time to start the countdown timer</p>
@@ -559,7 +559,7 @@ export default function OrderDetails({ order, onUpdateStatus, onUpdateEstimatedT
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-4">
                   <p className="text-gray-700 text-sm">
                     {(currentOrder.timer_adjustments_count || 0) >= 2
-                      ? "You have reached the maximum number of time adjustments (2)."
+                      ? "You have reached the maximum number of time adjustments for this order (2/2)."
                       : "Time adjustments are not allowed for orders that are ready or completed."}
                   </p>
                 </div>
