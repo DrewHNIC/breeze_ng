@@ -14,8 +14,6 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle,
-  Wallet,
-  CreditCard,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -27,15 +25,12 @@ interface EarningsData {
   monthlyEarnings: number
   totalDeliveries: number
   averageEarningsPerDelivery: number
-  pendingEarnings: number
-  paidEarnings: number
 }
 
 interface EarningsHistory {
   id: string
   order_id: string
   amount: number
-  status: string
   created_at: string
   order: {
     delivery_address: string
@@ -181,7 +176,6 @@ const EarningsPage = () => {
           id,
           order_id,
           amount,
-          status,
           created_at
         `)
         .eq("rider_id", riderId)
@@ -249,7 +243,6 @@ const EarningsPage = () => {
             id: earning.id,
             order_id: earning.order_id,
             amount: earning.amount,
-            status: earning.status,
             created_at: earning.created_at,
             order: {
               delivery_address: orderData?.delivery_address || "Unknown Address",
@@ -265,12 +258,6 @@ const EarningsPage = () => {
 
       // Calculate earnings statistics
       const totalEarnings = processedHistory.reduce((sum, earning) => sum + earning.amount, 0)
-      const paidEarnings = processedHistory
-        .filter((earning) => earning.status === "paid")
-        .reduce((sum, earning) => sum + earning.amount, 0)
-      const pendingEarnings = processedHistory
-        .filter((earning) => earning.status === "pending")
-        .reduce((sum, earning) => sum + earning.amount, 0)
 
       // Calculate weekly earnings
       const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7)
@@ -293,8 +280,6 @@ const EarningsPage = () => {
         monthlyEarnings,
         totalDeliveries,
         averageEarningsPerDelivery,
-        pendingEarnings,
-        paidEarnings,
       })
     } catch (error) {
       console.error("Error in fetchEarningsData:", error)
@@ -485,7 +470,6 @@ const EarningsPage = () => {
           </Card>
         </div>
 
-
         {/* Filters */}
         <Card className="mb-6 bg-gradient-to-r from-[#8f8578] to-[#7a7066] border-none shadow-lg">
           <CardContent className="p-6">
@@ -549,9 +533,6 @@ const EarningsPage = () => {
                         </div>
                         <div className="text-right">
                           <p className="font-medium text-green-600">+₦{earning.amount.toLocaleString()}</p>
-                          <p className={`text-xs ${earning.status === "paid" ? "text-green-600" : "text-yellow-600"}`}>
-                            {earning.status === "paid" ? "Paid" : "Pending"}
-                          </p>
                         </div>
                       </div>
 

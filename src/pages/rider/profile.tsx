@@ -245,6 +245,12 @@ const RiderProfilePage = () => {
     }
   }
 
+  const renderStars = (rating: number) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <Star key={i} className={`h-4 w-4 ${i < rating ? "text-yellow-400 fill-current" : "text-gray-300"}`} />
+    ))
+  }
+
   if (isLoading) {
     return (
       <RiderLayout title="Profile">
@@ -359,9 +365,16 @@ const RiderProfilePage = () => {
                       <Star className="h-5 w-5 text-yellow-500 mr-2" />
                       <span className="text-[#1d2c36]">Rating</span>
                     </div>
-                    <span className="font-medium text-[#1d2c36]">
-                      {profile.rating ? profile.rating.toFixed(1) : "N/A"}
-                    </span>
+                    <div className="flex items-center">
+                      {profile.rating ? (
+                        <>
+                          <div className="flex mr-2">{renderStars(Math.round(profile.rating))}</div>
+                          <span className="font-medium text-[#1d2c36]">({profile.rating})</span>
+                        </>
+                      ) : (
+                        <span className="font-medium text-[#1d2c36]">No ratings yet</span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between">

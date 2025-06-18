@@ -7,7 +7,6 @@ import {
   MapPin,
   Package,
   Clock,
-  Banknote,
   AlertCircle,
   Loader2,
   Search,
@@ -15,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
   CheckCircle,
+  Star,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -30,9 +30,9 @@ interface DeliveryHistoryItem {
   vendor: {
     store_name: string
   }
-  earnings: {
-    amount: number
-    status: string
+  rating?: {
+    rating: number
+    comment: string
   }
 }
 
@@ -55,7 +55,6 @@ const DeliveryHistoryPage = () => {
 
   // Stats
   const [totalDeliveries, setTotalDeliveries] = useState(0)
-  const [totalEarnings, setTotalEarnings] = useState(0)
 
   // Simple notification system for this component
   const addNotification = (notification: { title: string; description: string; type: string }) => {
@@ -193,8 +192,7 @@ const DeliveryHistoryPage = () => {
           created_at, 
           updated_at,
           delivery_address,
-          vendor_id,
-          earnings:rider_earnings(amount, status)
+          vendor_id
         `)
         .eq("rider_id", riderId)
         .eq("status", "delivered")
@@ -241,6 +239,17 @@ const DeliveryHistoryPage = () => {
             console.error("Error fetching vendor for order", order.id, ":", vendorError)
           }
 
+          // Get rider rating for this order
+          const { data: ratingData, error: ratingError } = await supabase
+            .from("rider_ratings")
+            .select("rating, comment")
+            .eq("order_id", order.id)
+            .single()
+
+          if (ratingError && ratingError.code !== "PGRST116") {
+            console.error("Error fetching rating for order", order.id, ":", ratingError)
+          }
+
           return {
             id: order.id,
             created_at: order.created_at,
@@ -250,7 +259,12 @@ const DeliveryHistoryPage = () => {
             vendor: {
               store_name: vendorData?.store_name || "Unknown Restaurant",
             },
-            earnings: order.earnings[0] || { amount: 0, status: "pending" },
+            rating: ratingData
+              ? {
+                  rating: ratingData.rating,
+                  comment: ratingData.comment || "",
+                }
+              : undefined,
           }
         }),
       )
@@ -262,7 +276,6 @@ const DeliveryHistoryPage = () => {
 
       // Calculate stats
       setTotalDeliveries(processedData.length)
-      setTotalEarnings(processedData.reduce((sum, order) => sum + (order.earnings?.amount || 0), 0))
     } catch (error) {
       console.error("Error in fetchDeliveryHistory:", error)
       setError("An unexpected error occurred. Please try again.")
@@ -292,6 +305,12 @@ const DeliveryHistoryPage = () => {
     } else {
       setExpandedOrderId(orderId)
     }
+  }
+
+  const renderStars = (rating: number) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <Star key={i} className={`h-4 w-4 ${i < rating ? "text-yellow-400 fill-current" : "text-gray-300"}`} />
+    ))
   }
 
   if (isLoading) {
@@ -401,27 +420,16 @@ const DeliveryHistoryPage = () => {
 
         <h1 className="text-2xl font-bold mb-6 text-[#1d2c36]">Delivery History</h1>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <Card className="bg-gradient-to-br from-[#8f8578] to-[#7a7066] border-none shadow-lg">
-            <CardContent className="p-6">
-              <h3 className="text-sm text-[#1d2c36]/70 mb-1">Total Deliveries</h3>
-              <div className="flex items-center">
-                <Package className="h-5 w-5 text-[#b9c6c8] mr-2" />
-                <span className="text-2xl font-bold text-[#1d2c36]">{totalDeliveries}</span>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-[#8f8578] to-[#7a7066] border-none shadow-lg">
-            <CardContent className="p-6">
-              <h3 className="text-sm text-[#1d2c36]/70 mb-1">Total Earnings</h3>
-              <div className="flex items-center">
-                <Banknote className="h-5 w-5 text-green-500 mr-2" />
-                <span className="text-2xl font-bold text-[#1d2c36]">₦{totalEarnings.toLocaleString()}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Stats Card */}
+        <Card className="mb-6 bg-gradient-to-br from-[#8f8578] to-[#7a7066] border-none shadow-lg">
+          <CardContent className="p-6">
+            <h3 className="text-sm text-[#1d2c36]/70 mb-1">Total Deliveries</h3>
+            <div className="flex items-center">
+              <Package className="h-5 w-5 text-[#b9c6c8] mr-2" />
+              <span className="text-2xl font-bold text-[#1d2c36]">{totalDeliveries}</span>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Filters */}
         <Card className="mb-6 bg-gradient-to-r from-[#8f8578] to-[#7a7066] border-none shadow-lg">
@@ -491,12 +499,14 @@ const DeliveryHistoryPage = () => {
                         <p className="text-sm text-[#1d2c36]/70">Order #{delivery.id.substring(0, 8)}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium text-green-600">
-                          +₦{delivery.earnings?.amount.toLocaleString() || "0"}
-                        </p>
-                        <p className="text-xs text-[#1d2c36]/60">
-                          {delivery.earnings?.status === "paid" ? "Paid" : "Pending"}
-                        </p>
+                        {delivery.rating ? (
+                          <div className="flex items-center">
+                            <div className="flex mr-2">{renderStars(delivery.rating.rating)}</div>
+                            <span className="text-sm text-[#1d2c36]/70">({delivery.rating.rating}/5)</span>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-[#1d2c36]/70">No rating</p>
+                        )}
                       </div>
                     </div>
 
@@ -539,15 +549,21 @@ const DeliveryHistoryPage = () => {
                             <p className="text-sm text-[#1d2c36]/70">{formatDate(delivery.completed_at)}</p>
                           </div>
                         </div>
-                        <div className="flex">
-                          <Banknote className="h-4 w-4 text-[#b9c6c8] mr-2 flex-shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-[#1d2c36]">Your Earnings</p>
-                            <p className="text-sm text-green-600 font-medium">
-                              ₦{delivery.earnings?.amount.toLocaleString() || "0"}
-                            </p>
+                        {delivery.rating && (
+                          <div className="flex">
+                            <Star className="h-4 w-4 text-[#b9c6c8] mr-2 flex-shrink-0 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium text-[#1d2c36]">Customer Rating</p>
+                              <div className="flex items-center mt-1">
+                                <div className="flex mr-2">{renderStars(delivery.rating.rating)}</div>
+                                <span className="text-sm text-[#1d2c36]/70">({delivery.rating.rating}/5)</span>
+                              </div>
+                              {delivery.rating.comment && (
+                                <p className="text-sm text-[#1d2c36]/70 mt-1 italic">"{delivery.rating.comment}"</p>
+                              )}
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </div>
                   )}
