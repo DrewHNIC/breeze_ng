@@ -485,32 +485,6 @@ const EarningsPage = () => {
           </Card>
         </div>
 
-        {/* Payment Status Cards */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 shadow-lg">
-            <CardContent className="p-6">
-              <h3 className="text-sm text-green-700 mb-1">Paid Earnings</h3>
-              <div className="flex items-center">
-                <Wallet className="h-5 w-5 text-green-600 mr-2" />
-                <span className="text-2xl font-bold text-green-800">
-                  ₦{earningsData?.paidEarnings.toLocaleString() || "0"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200 shadow-lg">
-            <CardContent className="p-6">
-              <h3 className="text-sm text-yellow-700 mb-1">Pending Earnings</h3>
-              <div className="flex items-center">
-                <CreditCard className="h-5 w-5 text-yellow-600 mr-2" />
-                <span className="text-2xl font-bold text-yellow-800">
-                  ₦{earningsData?.pendingEarnings.toLocaleString() || "0"}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Filters */}
         <Card className="mb-6 bg-gradient-to-r from-[#8f8578] to-[#7a7066] border-none shadow-lg">
