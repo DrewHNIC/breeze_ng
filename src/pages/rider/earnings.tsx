@@ -587,19 +587,6 @@ const EarningsPage = () => {
                               <p className="text-sm text-green-600 font-medium">₦{earning.amount.toLocaleString()}</p>
                             </div>
                           </div>
-                          <div className="flex">
-                            <Clock className="h-4 w-4 text-[#b9c6c8] mr-2 flex-shrink-0 mt-0.5" />
-                            <div>
-                              <p className="text-sm font-medium text-[#1d2c36]">Payment Status</p>
-                              <p
-                                className={`text-sm font-medium ${
-                                  earning.status === "paid" ? "text-green-600" : "text-yellow-600"
-                                }`}
-                              >
-                                {earning.status === "paid" ? "Paid" : "Pending Payment"}
-                              </p>
-                            </div>
-                          </div>
                         </div>
                       </div>
                     )}
