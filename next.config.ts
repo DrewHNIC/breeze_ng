@@ -18,6 +18,11 @@ const nextConfig = {
         hostname: "iucltqyclynvzjjexxdl.supabase.co",
         pathname: "/storage/v1/object/public/category-images/**",
       },
+      {
+        protocol: "https",
+        hostname: "iucltqyclynvzjjexxdl.supabase.co",
+        pathname: "/storage/v1/object/public/landing-videos/**",
+      },
     ],
   },
   eslint: {

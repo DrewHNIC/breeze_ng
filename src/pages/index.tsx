@@ -1,4 +1,3 @@
-// src/pages/index.tsx
 import React, { useRef, useEffect, useState } from 'react';
 import Head from 'next/head';
 import Header from '../components/layout/Header';
@@ -18,7 +17,9 @@ interface Restaurant {
 const Home: React.FC = () => {
   const personasRef = useRef<HTMLDivElement>(null);
   const [featuredRestaurants, setFeaturedRestaurants] = useState<Restaurant[]>([]);
-  const [currentVideo, setCurrentVideo] = useState<string>('/videos/hero-video-1.mp4');
+  const [currentVideo, setCurrentVideo] = useState<string>(
+    'https://iucltqyclynvzjjexxdl.supabase.co/storage/v1/object/public/landing-videos/hero-video-1.mp4'
+  );
 
   const scrollToPersonas = () => {
     personasRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,17 +42,19 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     const videos = [
-      '/videos/hero-video-1.mp4',
-      '/videos/hero-video-2.mp4',
-      '/videos/hero-video-3.mp4',
-      '/videos/hero-video-4.mp4',
-      '/videos/hero-video-5.mp4',
-      '/videos/hero-video-6.mp4',
+      'https://iucltqyclynvzjjexxdl.supabase.co/storage/v1/object/public/landing-videos/hero-video-1.mp4',
+      'https://iucltqyclynvzjjexxdl.supabase.co/storage/v1/object/public/landing-videos/hero-video-2.mp4',
+      'https://iucltqyclynvzjjexxdl.supabase.co/storage/v1/object/public/landing-videos/hero-video-3.mp4',
+      'https://iucltqyclynvzjjexxdl.supabase.co/storage/v1/object/public/landing-videos/hero-video-4.mp4',
+      'https://iucltqyclynvzjjexxdl.supabase.co/storage/v1/object/public/landing-videos/hero-video-5.mp4',
+      'https://iucltqyclynvzjjexxdl.supabase.co/storage/v1/object/public/landing-videos/hero-video-6.mp4',
     ];
+
     const changeVideo = () => {
       const randomIndex = Math.floor(Math.random() * videos.length);
       setCurrentVideo(videos[randomIndex]);
     };
+
     const intervalId = setInterval(changeVideo, 10000);
     return () => clearInterval(intervalId);
   }, []);
@@ -68,16 +71,28 @@ const Home: React.FC = () => {
 
       <main className="flex-grow">
         {/* Hero Section */}
-        <section className="relative h-screen">
+        <section className="relative h-screen overflow-hidden">
+          {/* Fallback Blur Background */}
+          <div
+            className="absolute inset-0 bg-cover bg-center filter blur-sm scale-105"
+            style={{ backgroundImage: 'url(/fallback-image.jpg)' }}
+          />
+
+          {/* Hero Video */}
           <video
             key={currentVideo}
             autoPlay
             loop
             muted
-            className="absolute inset-0 w-full h-full object-cover"
+            playsInline
+            preload="auto"
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out"
           >
             <source src={currentVideo} type="video/mp4" />
+            Your browser does not support the video tag.
           </video>
+
+          {/* Overlay Text */}
           <div className="absolute inset-0 bg-gradient-to-br from-[#b9c6c8]/80 to-[#1d2c36]/60 flex items-center justify-center">
             <div className="text-center text-[#1d2c36]">
               <h1 className="text-6xl font-bold italic mb-4">Welcome to breeze</h1>
@@ -93,9 +108,15 @@ const Home: React.FC = () => {
         </section>
 
         {/* User Personas */}
-        <section id="join-community" className="py-20 bg-gradient-to-b from-[#b9c6c8] to-[#1d2c36]" ref={personasRef}>
+        <section
+          id="join-community"
+          className="py-20 bg-gradient-to-b from-[#b9c6c8] to-[#1d2c36]"
+          ref={personasRef}
+        >
           <div className="max-w-6xl mx-auto px-6">
-            <h2 className="text-4xl sm:text-5xl font-bold font-logo text-center mb-16 tracking-tight">Join Our Community</h2>
+            <h2 className="text-4xl sm:text-5xl font-bold font-logo text-center mb-16 tracking-tight">
+              Join Our Community
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
               {personas.map((persona) => (
                 <div
@@ -103,14 +124,16 @@ const Home: React.FC = () => {
                   className="bg-gradient-to-br from-[#1d2c36] to-[#2a3a4d] text-[#8f8578] rounded-2xl shadow-lg overflow-hidden transform transition duration-300 hover:scale-[1.02] hover:shadow-xl"
                 >
                   <Image
-                    src={persona.image || "/placeholder.svg"}
+                    src={persona.image || '/placeholder.svg'}
                     alt={persona.title}
                     width={600}
                     height={400}
                     className="w-full h-52 object-cover rounded-t-2xl"
                   />
                   <div className="p-6">
-                    <h3 className="text-xl font-semibold text-[#b9c6c8] uppercase mb-2 tracking-wide">{persona.title}</h3>
+                    <h3 className="text-xl font-semibold text-[#b9c6c8] uppercase mb-2 tracking-wide">
+                      {persona.title}
+                    </h3>
                     <p className="leading-relaxed mb-4">{persona.description}</p>
                     <Link
                       href={persona.link}
@@ -128,7 +151,9 @@ const Home: React.FC = () => {
         {/* Featured Restaurants */}
         <section className="py-20 bg-gradient-to-b from-[#b9c6c8] to-[#1d2c36]">
           <div className="max-w-6xl mx-auto px-6">
-            <h2 className="text-4xl sm:text-5xl font-bold font-logo text-center mb-16 tracking-tight">Featured Restaurants</h2>
+            <h2 className="text-4xl sm:text-5xl font-bold font-logo text-center mb-16 tracking-tight">
+              Featured Restaurants
+            </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
               {featuredRestaurants.map((restaurant) => (
                 <div
@@ -136,7 +161,7 @@ const Home: React.FC = () => {
                   className="bg-gradient-to-br from-[#1d2c36] to-[#2a3a4d] text-[#8f8578] rounded-2xl shadow-lg overflow-hidden transform transition duration-300 hover:scale-[1.02] hover:shadow-xl"
                 >
                   <Image
-                    src={restaurant.image || "/placeholder.svg"}
+                    src={restaurant.image || '/placeholder.svg'}
                     alt={restaurant.name}
                     width={600}
                     height={400}
