@@ -92,19 +92,20 @@ const Home: React.FC = () => {
             Your browser does not support the video tag.
           </video>
 
-          {/* Overlay Text */}
-          <div className="absolute inset-0 bg-gradient-to-br from-[#b9c6c8]/80 to-[#1d2c36]/60 flex items-center justify-center">
-            <div className="text-center text-[#1d2c36]">
-              <h1 className="text-6xl font-bold italic mb-4">Welcome to breeze</h1>
-              <p className="text-2xl mb-8 italic">Driven. Dedicated. Ours.</p>
-              <button
-                onClick={scrollToPersonas}
-                className="border border-[#1d2c36] text-[#1d2c36] px-6 py-2 rounded-md bg-transparent hover:text-[#b9c6c8] hover:border-[#b9c6c8] transition duration-300"
-              >
-                Get Started
-              </button>
-            </div>
-          </div>
+          {/* Overlay Text Without Gradient */}
+<div className="absolute inset-0 flex items-center justify-center">
+  <div className="text-center text-white drop-shadow-lg">
+    <h1 className="text-6xl font-bold italic mb-4">Welcome to breeze</h1>
+    <p className="text-2xl mb-8 italic">Driven. Dedicated. Ours.</p>
+    <button
+      onClick={scrollToPersonas}
+      className="border border-white text-white px-6 py-2 rounded-md bg-transparent hover:text-[#b9c6c8] hover:border-[#b9c6c8] transition duration-300"
+    >
+      Get Started
+    </button>
+  </div>
+</div>
+
         </section>
 
         {/* User Personas */}
